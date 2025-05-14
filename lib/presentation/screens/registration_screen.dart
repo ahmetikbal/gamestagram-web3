@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'login_screen.dart'; // Import LoginScreen
 
 class RegistrationScreen extends StatefulWidget {
   const RegistrationScreen({Key? key}) : super(key: key);
@@ -177,11 +178,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     const Text('Already have an account? '),
                     TextButton(
                       onPressed: () {
-                        // Navigate to Login Screen - to be implemented later
-                        if (Navigator.canPop(context)) {
-                           Navigator.pop(context); // Go back to WelcomeScreen for now
-                        } 
-                        print('Navigate to Login Screen from Registration');
+                        // Navigate to Login Screen
+                        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
+                        // if (Navigator.canPop(context)) {
+                        //    Navigator.pop(context); // Go back to WelcomeScreen for now
+                        // } 
+                        // print('Navigate to Login Screen from Registration');
                       },
                       child: const Text('Login'),
                     ),
