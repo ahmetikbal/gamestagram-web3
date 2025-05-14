@@ -21,7 +21,8 @@ class AuthService {
       return {'success': false, 'message': 'Username already taken'};
     }
 
-    String userId = _userIdCounter++.toString();
+    _userIdCounter++; // Increment first
+    String userId = _userIdCounter.toString(); // Then convert to string
     UserModel newUser = UserModel(id: userId, username: username, email: email);
     _mockUserPasswords[email] = password; // In a real app, hash the password!
     _mockUserDetails[email] = newUser;
