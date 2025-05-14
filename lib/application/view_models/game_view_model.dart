@@ -3,6 +3,7 @@ import '../../services/game_service.dart';
 import '../../services/social_service.dart';
 import '../../data/models/game_model.dart';
 import '../../data/models/user_model.dart';
+import '../../data/models/interaction_model.dart';
 
 class GameViewModel extends ChangeNotifier {
   final GameService _gameService = GameService();
@@ -17,12 +18,22 @@ class GameViewModel extends ChangeNotifier {
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
 
+  List<InteractionModel> _currentViewingGameComments = [];
+  List<InteractionModel> get currentViewingGameComments => _currentViewingGameComments;
+  bool _isLoadingComments = false;
+  bool get isLoadingComments => _isLoadingComments;
+
   GameViewModel() {
     // fetchInitialGames();
   }
 
-  void _setLoading(bool loading) {
+  void _setLoading(bool loading, {bool notify = true}) {
     _isLoading = loading;
+    if (notify) notifyListeners();
+  }
+
+  void _setLoadingComments(bool loading) {
+    _isLoadingComments = loading;
     notifyListeners();
   }
 
@@ -39,6 +50,7 @@ class GameViewModel extends ChangeNotifier {
       _games = fetchedGames;
       for (var game in _games) {
         game.likeCount = _socialService.getLikeCount(game.id);
+        // TODO: Initialize game.commentCount from SocialService if it provides a count method
       }
       print('[GameViewModel] Initial games loaded: ${_games.length}');
     } catch (e) {
@@ -56,6 +68,7 @@ class GameViewModel extends ChangeNotifier {
       final moreGames = await _gameService.fetchGames(count: count);
       for (var game in moreGames) {
         game.likeCount = _socialService.getLikeCount(game.id);
+        // TODO: Initialize game.commentCount
       }
       _games.addAll(moreGames);
       print('[GameViewModel] More games loaded. Total: ${_games.length}');
@@ -72,19 +85,52 @@ class GameViewModel extends ChangeNotifier {
     if (gameIndex == -1) return;
 
     final game = _games[gameIndex];
+    final originalIsLiked = game.isLikedByCurrentUser;
+    final originalLikeCount = game.likeCount;
+
     game.isLikedByCurrentUser = !game.isLikedByCurrentUser;
     game.isLikedByCurrentUser ? game.likeCount++ : game.likeCount--;
     notifyListeners();
 
-    final success = await _socialService.toggleLikeGame(gameId, userId);
-    if (game.isLikedByCurrentUser != success) {
-      print('[GameViewModel] Like toggle failed for $gameId, reverting UI (mock scenario)');
-      game.isLikedByCurrentUser = !game.isLikedByCurrentUser;
-      game.isLikedByCurrentUser ? game.likeCount++ : game.likeCount--;
-      notifyListeners();
-    } else {
+    try {
+      final actualLikedState = await _socialService.toggleLikeGame(gameId, userId);
+      _games[gameIndex].isLikedByCurrentUser = actualLikedState;
       _games[gameIndex].likeCount = _socialService.getLikeCount(gameId);
       notifyListeners();
-  // Placeholder for pre-fetching logic if needed
-  // Future<void> prefetchNextGames(String currentGameId) async { ... }
+      print('[GameViewModel] Game $gameId like toggled by $userId. New status: ${game.isLikedByCurrentUser}, Likes: ${game.likeCount}');
+    } catch (e) {
+      print('[GameViewModel] Error toggling like for $gameId: $e. Reverting optimistic update.');
+      _games[gameIndex].isLikedByCurrentUser = originalIsLiked;
+      _games[gameIndex].likeCount = originalLikeCount;
+      notifyListeners();
+    }
+  }
+
+  Future<void> fetchCommentsForGame(String gameId) async {
+    _setLoadingComments(true);
+    try {
+      _currentViewingGameComments = await _socialService.getComments(gameId);
+      print('[GameViewModel] Fetched ${_currentViewingGameComments.length} comments for game $gameId');
+    } catch (e) {
+      print('[GameViewModel] Error fetching comments for $gameId: $e');
+      _currentViewingGameComments = [];
+    } finally {
+      _setLoadingComments(false);
+    }
+  }
+
+  Future<bool> addCommentToGame(String gameId, String userId, String text) async {
+    final newComment = await _socialService.addComment(gameId, userId, text);
+    if (newComment != null) {
+      _currentViewingGameComments.insert(0, newComment);
+      final gameIndex = _games.indexWhere((g) => g.id == gameId);
+      if (gameIndex != -1) {
+        _games[gameIndex].commentCount++;
+      }
+      notifyListeners();
+      print('[GameViewModel] Comment added to $gameId by $userId');
+      return true;
+    }
+    return false;
+  }
 }

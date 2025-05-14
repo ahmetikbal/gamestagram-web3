@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../data/models/game_model.dart';
 import '../../application/view_models/game_view_model.dart';
 import '../../application/view_models/auth_view_model.dart';
+import 'comment_panel_widget.dart';
 
 class GameFrameWidget extends StatelessWidget {
   final GameModel game;
@@ -84,7 +85,20 @@ class GameFrameWidget extends StatelessWidget {
                   }
                 ),
                 const SizedBox(height: 12),
-                IconButton(icon: Icon(Icons.comment_outlined, color: Colors.grey[700], size: 30), onPressed: () { print('Comment tapped for ${game.id}'); }, tooltip: 'Comment'),
+                IconButton(
+                  icon: Icon(Icons.comment_outlined, color: Colors.grey[700], size: 30),
+                  onPressed: () {
+                    print('Comment tapped for ${game.id}');
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      builder: (BuildContext bc) {
+                        return CommentPanelWidget(game: game);
+                      },
+                    );
+                  },
+                  tooltip: 'Comment'
+                ),
                 const SizedBox(height: 12),
                 IconButton(icon: Icon(Icons.share_outlined, color: Colors.grey[700], size: 30), onPressed: () { print('Share tapped for ${game.id}'); }, tooltip: 'Share'),
                 const SizedBox(height: 12),
