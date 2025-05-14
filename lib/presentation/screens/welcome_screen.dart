@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-// Import for RegistrationScreen will be added in the next step
+import 'registration_screen.dart'; // Import RegistrationScreen
 // Import for LoginScreen will be added later
 
 class WelcomeScreen extends StatelessWidget {
@@ -40,8 +40,8 @@ class WelcomeScreen extends StatelessWidget {
                 ),
                 onPressed: () {
                   // Navigate to Registration Screen - to be implemented
-                  // Navigator.push(context, MaterialPageRoute(builder: (context) => const RegistrationScreen()));
-                  print('Navigate to Registration Screen'); // Placeholder
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const RegistrationScreen()));
+                  // print('Navigate to Registration Screen'); // Placeholder
                 },
                 child: const Text('Register', style: TextStyle(fontSize: 18)),
               ),
