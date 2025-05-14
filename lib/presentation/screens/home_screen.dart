@@ -1,26 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../application/view_models/auth_view_model.dart';
+import '../../application/view_models/game_view_model.dart';
 import '../../data/models/game_model.dart';
 import '../widgets/game_frame_widget.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
 
-  // Mock data for initial setup - will be replaced by actual game fetching later
-  // final List<Game> _games = [
-  //   Game(id: '1', title: 'Game One', description: 'The first amazing game!'),
-  //   Game(id: '2', title: 'Game Two', description: 'Swipe up for more fun.'),
-  //   Game(id: '3', title: 'Game Three', description: 'Challenge your friends!'),
-  //   Game(id: '4', title: 'Game Four', description: 'New levels added weekly.'),
-  //   Game(id: '5', title: 'Game Five', description: 'Collect all the achievements.'),
-  // ];
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
 
-  // final PageController _pageController = PageController();
+class _HomeScreenState extends State<HomeScreen> {
+  final PageController _pageController = PageController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<GameViewModel>(context, listen: false).fetchInitialGames();
+    });
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final authViewModel = Provider.of<AuthViewModel>(context);
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    final gameViewModel = Provider.of<GameViewModel>(context);
     final user = authViewModel.currentUser;
 
     return Scaffold(
@@ -32,50 +44,56 @@ class HomeScreen extends StatelessWidget {
             tooltip: 'Logout',
             onPressed: () async {
               await authViewModel.logout();
-              // Navigation to WelcomeScreen is handled by Consumer in main.dart
             },
           ),
         ],
       ),
-      body: Center(
-        child: user != null 
-            ? Column(
+      body: Consumer<GameViewModel>(
+        builder: (context, gvm, child) {
+          if (gvm.isLoading && gvm.games.isEmpty) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (gvm.errorMessage != null && gvm.games.isEmpty) {
+            return Center(
+              child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    'You are logged in as:',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'ID: ${user.id}',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  Text(
-                    'Username: ${user.username}',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  Text(
-                    'Email: ${user.email}',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 40),
-                  const Text(
-                    '(Game Feed will be here)',
-                    style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey),
+                  Text('Error: ${gvm.errorMessage}'),
+                  const SizedBox(height: 10),
+                  ElevatedButton(
+                    onPressed: () => gvm.fetchInitialGames(),
+                    child: const Text('Retry'),
                   )
                 ],
-              )
-            : const Text('Not logged in. This should not typically be visible.'),
+              ),
+            );
+          }
+          if (gvm.games.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text('No games available right now. Try again later!'),
+                  const SizedBox(height: 10),
+                  ElevatedButton(
+                     onPressed: () => gvm.fetchInitialGames(),
+                     child: const Text('Refresh Games'),
+                  )
+                ],
+              ),
+            );
+          }
+
+          return PageView.builder(
+            controller: _pageController,
+            scrollDirection: Axis.vertical,
+            itemCount: gvm.games.length,
+            itemBuilder: (context, index) {
+              return GameFrameWidget(game: gvm.games[index]);
+            },
+          );
+        },
       ),
-      // body: PageView.builder(
-      //   controller: _pageController,
-      //   scrollDirection: Axis.vertical,
-      //   itemCount: _games.length,
-      //   itemBuilder: (context, index) {
-      //     return GameFrameWidget(game: _games[index]);
-      //   },
-      // ),
     );
   }
-} 
+}
