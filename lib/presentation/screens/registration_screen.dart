@@ -9,6 +9,16 @@ class RegistrationScreen extends StatefulWidget {
 
 class _RegistrationScreenState extends State<RegistrationScreen> {
   final _formKey = GlobalKey<FormState>();
+  // Controller for password to compare with confirm password
+  final TextEditingController _passwordController = TextEditingController();
+  bool _isPasswordObscured = true;
+  bool _isConfirmPasswordObscured = true; // Added for Confirm Password
+
+  @override
+  void dispose() {
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +43,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
               const SizedBox(height: 32),
-              // Input fields and button will be added in subsequent commits
               // Username
               TextFormField(
                 decoration: const InputDecoration(
@@ -46,7 +55,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   if (value == null || value.isEmpty) {
                     return 'Please enter a username';
                   }
-                  // Further validation for length (4-20) can be added here
+                  if (value.length < 4 || value.length > 20) {
+                    return 'Username must be between 4 and 20 characters';
+                  }
                   return null;
                 },
                 // onSaved: (value) => _username = value,
@@ -75,14 +86,24 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               const SizedBox(height: 16),
               // Password
               TextFormField(
-                decoration: const InputDecoration(
+                controller: _passwordController,
+                decoration: InputDecoration(
                   labelText: 'Password',
                   hintText: 'Enter your password (min. 8 characters, 1 digit)',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.lock_outline),
-                  // Suffix icon for visibility toggle will be added later if needed
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.lock_outline),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _isPasswordObscured ? Icons.visibility_off : Icons.visibility,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _isPasswordObscured = !_isPasswordObscured;
+                      });
+                    },
+                  ),
                 ),
-                obscureText: true, // Hide password text
+                obscureText: _isPasswordObscured,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter a password';
@@ -95,12 +116,78 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   }
                   return null;
                 },
-                // onChanged: (value) => _password = value, // Store for confirm password validation
               ),
               const SizedBox(height: 16),
               // Confirm Password
+              TextFormField(
+                decoration: InputDecoration(
+                  labelText: 'Confirm Password',
+                  hintText: 'Re-enter your password',
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.lock_outline),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _isConfirmPasswordObscured ? Icons.visibility_off : Icons.visibility,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _isConfirmPasswordObscured = !_isConfirmPasswordObscured;
+                      });
+                    },
+                  ),
+                ),
+                obscureText: _isConfirmPasswordObscured,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please confirm your password';
+                  }
+                  if (value != _passwordController.text) {
+                    return 'Passwords do not match';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 32),
               // Register Button
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16.0),
+                  textStyle: const TextStyle(fontSize: 18),
+                ),
+                onPressed: () {
+                  if (_formKey.currentState!.validate()) {
+                    // Process registration
+                    // _formKey.currentState!.save(); // To call onSaved on TextFormFields if needed
+                    print('Registration form is valid');
+                    // Placeholder: Show a success message or navigate
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Processing Registration...')),
+                    );
+                  }
+                },
+                child: const Text('Register'),
+              ),
+              const SizedBox(height: 16),
               // Login Link
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    const Text('Already have an account? '),
+                    TextButton(
+                      onPressed: () {
+                        // Navigate to Login Screen - to be implemented later
+                        if (Navigator.canPop(context)) {
+                           Navigator.pop(context); // Go back to WelcomeScreen for now
+                        } 
+                        print('Navigate to Login Screen from Registration');
+                      },
+                      child: const Text('Login'),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
