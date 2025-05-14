@@ -17,27 +17,50 @@ class GameFrameWidget extends StatelessWidget {
             .withOpacity(0.3), // Give different background for visual cue
       ),
       margin: const EdgeInsets.all(8.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: <Widget>[
-          Text(
-            'Game ID: ${game.id}',
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            game.title,
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          if (game.description.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 8.0),
-              child: Text(
-                game.description,
-                style: Theme.of(context).textTheme.bodyMedium,
-                textAlign: TextAlign.center,
+      child: Stack( // Use Stack to overlay buttons
+        children: [
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                'Game ID: ${game.id}',
+                style: Theme.of(context).textTheme.headlineSmall,
               ),
+              const SizedBox(height: 8),
+              Text(
+                game.title,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              if (game.description.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Text(
+                    game.description,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+            ],
+          ),
+          // Overlay for social interaction buttons
+          Positioned(
+            right: 10,
+            bottom: 10, // Adjust position as needed, or center vertically
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(icon: const Icon(Icons.favorite_border), onPressed: () { print('Like tapped for ${game.id}'); }, tooltip: 'Like'),
+                // Text('0'), // Placeholder for like count
+                const SizedBox(height: 8),
+                IconButton(icon: const Icon(Icons.comment_outlined), onPressed: () { print('Comment tapped for ${game.id}'); }, tooltip: 'Comment'),
+                // Text('0'), // Placeholder for comment count
+                const SizedBox(height: 8),
+                IconButton(icon: const Icon(Icons.share_outlined), onPressed: () { print('Share tapped for ${game.id}'); }, tooltip: 'Share'),
+                const SizedBox(height: 8),
+                IconButton(icon: const Icon(Icons.bookmark_border_outlined), onPressed: () { print('Save tapped for ${game.id}'); }, tooltip: 'Save'),
+              ],
             ),
+          )
         ],
       ),
     );

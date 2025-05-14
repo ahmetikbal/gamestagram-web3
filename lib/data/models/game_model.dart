@@ -1,11 +1,17 @@
-class Game {
+class GameModel {
   final String id;
   final String title;
-  final String description; // Optional: A brief description or genre
+  final String description;
+  int likeCount;
+  int commentCount;
+  bool isLikedByCurrentUser;
 
-  Game({
+  GameModel({
     required this.id,
     required this.title,
     this.description = '',
+    this.likeCount = 0,
+    this.commentCount = 0,
+    this.isLikedByCurrentUser = false,
   });
-} 
+}
