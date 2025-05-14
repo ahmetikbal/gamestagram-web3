@@ -15,28 +15,27 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (context) => AuthViewModel(),
-      child: MaterialApp(
-        title: 'Gamestagram',
-        theme: ThemeData(
-          primarySwatch: Colors.blue,
-          visualDensity: VisualDensity.adaptivePlatformDensity,
-        ),
-        // Check login status to decide initial route
-        home: Consumer<AuthViewModel>(
-          builder: (context, authViewModel, child) {
-            if (authViewModel.currentUser != null) {
-              return const HomeScreen(); // Navigate to HomeScreen if logged in
-            } else {
-              return const WelcomeScreen(); // Else show WelcomeScreen
-            }
-          },
-        ),
-        // Define routes for navigation if needed later
-        // routes: {
-        //   '/login': (context) => LoginScreen(),
-        //   '/register': (context) => RegistrationScreen(),
-        //   '/home': (context) => HomeScreen(),
-        // },
+      child: Consumer<AuthViewModel>(
+        builder: (context, authViewModel, child) {
+          print('[MainApp Consumer] Rebuilding. CurrentUser: ${authViewModel.currentUser?.username}, isLoading: ${authViewModel.isLoading}');
+          return MaterialApp(
+            key: ValueKey(authViewModel.currentUser?.id ?? 'loggedOut'), // Optional: Add a key based on login state
+            title: 'Gamestagram',
+            theme: ThemeData(
+              primarySwatch: Colors.blue,
+              visualDensity: VisualDensity.adaptivePlatformDensity,
+            ),
+            home: authViewModel.currentUser != null 
+                ? const HomeScreen() 
+                : const WelcomeScreen(),
+            // Define routes for navigation if needed later
+            // routes: {
+            //   '/login': (context) => LoginScreen(),
+            //   '/register': (context) => RegistrationScreen(),
+            //   '/home': (context) => HomeScreen(),
+            // },
+          );
+        },
       ),
     );
   }

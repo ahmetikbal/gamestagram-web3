@@ -36,10 +36,7 @@ class _LoginScreenState extends State<LoginScreen> {
         if (success) {
           // Navigation to HomeScreen is handled by the Consumer in main.dart
           // based on authViewModel.currentUser
-          // Optionally, show a success message if needed, though direct navigation is often enough
-          // ScaffoldMessenger.of(context).showSnackBar(
-          //   const SnackBar(content: Text('Login Successful!')),
-          // );
+          print('[LoginScreen] Login reported success by ViewModel. Relying on main.dart Consumer for navigation.');
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(authViewModel.errorMessage ?? 'Login failed')),

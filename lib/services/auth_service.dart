@@ -4,20 +4,23 @@ class AuthService {
   // Mocked data store for users
   final Map<String, String> _mockUserPasswords = {}; // email: password
   final Map<String, UserModel> _mockUserDetails = {}; // email: UserModel
-  int _userIdCounter = 1;
+  int _userIdCounter = 0; // Start at 0, so first user is 1
 
   Future<Map<String, dynamic>> register({
     required String username,
     required String email,
     required String password,
   }) async {
+    print('[AuthService] Attempting to register: $email, Username: $username');
     await Future.delayed(const Duration(seconds: 1)); // Simulate network delay
 
     if (_mockUserDetails.containsKey(email)) {
+      print('[AuthService] Registration failed: Email $email already in use');
       return {'success': false, 'message': 'Email already in use'};
     }
     // Simple username check (in a real app, this would be a DB query)
     if (_mockUserDetails.values.any((user) => user.username == username)) {
+      print('[AuthService] Registration failed: Username $username already taken');
       return {'success': false, 'message': 'Username already taken'};
     }
 
@@ -26,7 +29,9 @@ class AuthService {
     UserModel newUser = UserModel(id: userId, username: username, email: email);
     _mockUserPasswords[email] = password; // In a real app, hash the password!
     _mockUserDetails[email] = newUser;
-
+    print('[AuthService] Registration successful for $email. Stored user: ${newUser.username}, Stored pass: $password');
+    print('[AuthService] Current _mockUserDetails: $_mockUserDetails');
+    print('[AuthService] Current _mockUserPasswords: $_mockUserPasswords');
     return {'success': true, 'message': 'Registration successful', 'user': newUser};
   }
 
@@ -34,6 +39,7 @@ class AuthService {
     required String emailOrUsername,
     required String password,
   }) async {
+    print('[AuthService] Attempting login for: $emailOrUsername with password: $password');
     await Future.delayed(const Duration(seconds: 1)); // Simulate network delay
 
     // Find user by email or username
@@ -43,27 +49,34 @@ class AuthService {
     if (_mockUserDetails.containsKey(emailOrUsername)) { // Check if it's an email
       foundUser = _mockUserDetails[emailOrUsername];
       userEmailKey = emailOrUsername;
+      print('[AuthService] User lookup by email ($emailOrUsername): ${foundUser?.username}');
     } else { // Check if it's a username
       for (var entry in _mockUserDetails.entries) {
         if (entry.value.username == emailOrUsername) {
           foundUser = entry.value;
           userEmailKey = entry.key;
+          print('[AuthService] User lookup by username ($emailOrUsername): ${foundUser?.username}, Email key: $userEmailKey');
           break;
         }
       }
     }
 
     if (foundUser != null && userEmailKey != null && _mockUserPasswords[userEmailKey] == password) {
+      print('[AuthService] Login successful for ${foundUser.username}. Password match.');
       return {'success': true, 'message': 'Login successful', 'user': foundUser};
+    } else {
+      print('[AuthService] Login failed for $emailOrUsername.');
+      print('[AuthService] foundUser: ${foundUser?.id}, userEmailKey: $userEmailKey, storedPassword: ${_mockUserPasswords[userEmailKey]}');
+      print('[AuthService] Current _mockUserDetails: $_mockUserDetails');
+      print('[AuthService] Current _mockUserPasswords: $_mockUserPasswords');
+      return {'success': false, 'message': 'Invalid email/username or password'};
     }
-
-    return {'success': false, 'message': 'Invalid email/username or password'};
   }
 
   // Placeholder for logout if needed later
   Future<void> logout() async {
     await Future.delayed(const Duration(milliseconds: 500));
     // Clear session, etc.
-    print('User logged out');
+    print('[AuthService] User logged out');
   }
 } 

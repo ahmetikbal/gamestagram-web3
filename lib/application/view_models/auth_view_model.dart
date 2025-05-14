@@ -31,11 +31,13 @@ class AuthViewModel extends ChangeNotifier {
   }) async {
     _setLoading(true);
     _clearError();
+    print('[AuthViewModel] Calling AuthService.register for $email');
     final response = await _authService.register(
       username: username,
       email: email,
       password: password,
     );
+    print('[AuthViewModel] Response from AuthService.register: $response');
     _setLoading(false);
 
     if (response['success']) {
@@ -46,6 +48,7 @@ class AuthViewModel extends ChangeNotifier {
       return true;
     } else {
       _errorMessage = response['message'];
+      print('[AuthViewModel] Registration error: $_errorMessage');
       notifyListeners();
       return false;
     }
@@ -57,18 +60,22 @@ class AuthViewModel extends ChangeNotifier {
   }) async {
     _setLoading(true);
     _clearError();
+    print('[AuthViewModel] Calling AuthService.login for $emailOrUsername');
     final response = await _authService.login(
       emailOrUsername: emailOrUsername,
       password: password,
     );
+    print('[AuthViewModel] Response from AuthService.login: $response');
     _setLoading(false);
 
     if (response['success']) {
       _currentUser = response['user'];
+      print('[AuthViewModel] Login success. CurrentUser set to: ${_currentUser?.username} (ID: ${_currentUser?.id})');
       notifyListeners();
       return true;
     } else {
       _errorMessage = response['message'];
+      print('[AuthViewModel] Login error: $_errorMessage');
       notifyListeners();
       return false;
     }
@@ -76,9 +83,11 @@ class AuthViewModel extends ChangeNotifier {
 
   Future<void> logout() async {
     _setLoading(true);
+    print('[AuthViewModel] Logging out user: ${_currentUser?.username}');
     await _authService.logout();
     _currentUser = null;
     _setLoading(false);
+    print('[AuthViewModel] User logged out. CurrentUser is now: $_currentUser');
     notifyListeners();
   }
 } 
