@@ -87,8 +87,15 @@ class _HomeScreenState extends State<HomeScreen> {
           return PageView.builder(
             controller: _pageController,
             scrollDirection: Axis.vertical,
-            itemCount: gvm.games.length,
+            itemCount: gvm.games.length + (gvm.isLoading && gvm.games.isNotEmpty ? 1 : 0),
             itemBuilder: (context, index) {
+              if (index == gvm.games.length && gvm.isLoading) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              if (index >= gvm.games.length - 2 && !gvm.isLoading) {
+                Provider.of<GameViewModel>(context, listen: false).fetchMoreGames();
+              }
               return GameFrameWidget(game: gvm.games[index]);
             },
           );
