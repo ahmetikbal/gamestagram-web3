@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'login_screen.dart'; // Import LoginScreen
+import 'package:provider/provider.dart'; // Import Provider
+import '../../application/view_models/auth_view_model.dart'; // Import AuthViewModel
+import 'login_screen.dart'; 
 
 class RegistrationScreen extends StatefulWidget {
   const RegistrationScreen({Key? key}) : super(key: key);
@@ -10,19 +12,52 @@ class RegistrationScreen extends StatefulWidget {
 
 class _RegistrationScreenState extends State<RegistrationScreen> {
   final _formKey = GlobalKey<FormState>();
-  // Controller for password to compare with confirm password
   final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _usernameController = TextEditingController(); // Added
+  final TextEditingController _emailController = TextEditingController(); // Added
+
   bool _isPasswordObscured = true;
-  bool _isConfirmPasswordObscured = true; // Added for Confirm Password
+  bool _isConfirmPasswordObscured = true;
 
   @override
   void dispose() {
     _passwordController.dispose();
+    _usernameController.dispose(); // Added
+    _emailController.dispose(); // Added
     super.dispose();
+  }
+
+  Future<void> _submitForm() async {
+    if (_formKey.currentState!.validate()) {
+      final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+      final success = await authViewModel.register(
+        username: _usernameController.text,
+        email: _emailController.text,
+        password: _passwordController.text,
+      );
+
+      if (mounted) { // Check if the widget is still in the tree
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Registration successful! Please login.')),
+          );
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const LoginScreen()),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(authViewModel.errorMessage ?? 'Registration failed')),
+          );
+        }
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final authViewModel = Provider.of<AuthViewModel>(context); // For isLoading and error message
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Create Account'),
@@ -35,7 +70,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              // Placeholder for App Logo
               const Icon(Icons.gamepad, size: 80, color: Colors.blueAccent),
               const SizedBox(height: 24),
               Text(
@@ -44,8 +78,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
               const SizedBox(height: 32),
-              // Username
               TextFormField(
+                controller: _usernameController, // Added
                 decoration: const InputDecoration(
                   labelText: 'Username',
                   hintText: 'Enter your username (4-20 characters)',
@@ -61,11 +95,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   }
                   return null;
                 },
-                // onSaved: (value) => _username = value,
               ),
               const SizedBox(height: 16),
-              // Email
               TextFormField(
+                controller: _emailController, // Added
                 decoration: const InputDecoration(
                   labelText: 'Email',
                   hintText: 'Enter your email address',
@@ -82,10 +115,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   }
                   return null;
                 },
-                // onSaved: (value) => _email = value,
               ),
               const SizedBox(height: 16),
-              // Password
               TextFormField(
                 controller: _passwordController,
                 decoration: InputDecoration(
@@ -94,32 +125,18 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   border: const OutlineInputBorder(),
                   prefixIcon: const Icon(Icons.lock_outline),
                   suffixIcon: IconButton(
-                    icon: Icon(
-                      _isPasswordObscured ? Icons.visibility_off : Icons.visibility,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _isPasswordObscured = !_isPasswordObscured;
-                      });
-                    },
-                  ),
+                    icon: Icon(_isPasswordObscured ? Icons.visibility_off : Icons.visibility),
+                    onPressed: () => setState(() => _isPasswordObscured = !_isPasswordObscured)),
                 ),
                 obscureText: _isPasswordObscured,
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter a password';
-                  }
-                  if (value.length < 8) {
-                    return 'Password must be at least 8 characters long';
-                  }
-                  if (!RegExp(r'[0-9]').hasMatch(value)) {
-                    return 'Password must contain at least one digit';
-                  }
+                  if (value == null || value.isEmpty) return 'Please enter a password';
+                  if (value.length < 8) return 'Password must be at least 8 characters long';
+                  if (!RegExp(r'[0-9]').hasMatch(value)) return 'Password must contain at least one digit';
                   return null;
                 },
               ),
               const SizedBox(height: 16),
-              // Confirm Password
               TextFormField(
                 decoration: InputDecoration(
                   labelText: 'Confirm Password',
@@ -127,49 +144,28 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   border: const OutlineInputBorder(),
                   prefixIcon: const Icon(Icons.lock_outline),
                   suffixIcon: IconButton(
-                    icon: Icon(
-                      _isConfirmPasswordObscured ? Icons.visibility_off : Icons.visibility,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _isConfirmPasswordObscured = !_isConfirmPasswordObscured;
-                      });
-                    },
-                  ),
+                    icon: Icon(_isConfirmPasswordObscured ? Icons.visibility_off : Icons.visibility),
+                    onPressed: () => setState(() => _isConfirmPasswordObscured = !_isConfirmPasswordObscured)),
                 ),
                 obscureText: _isConfirmPasswordObscured,
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please confirm your password';
-                  }
-                  if (value != _passwordController.text) {
-                    return 'Passwords do not match';
-                  }
+                  if (value == null || value.isEmpty) return 'Please confirm your password';
+                  if (value != _passwordController.text) return 'Passwords do not match';
                   return null;
                 },
               ),
               const SizedBox(height: 32),
-              // Register Button
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16.0),
-                  textStyle: const TextStyle(fontSize: 18),
-                ),
-                onPressed: () {
-                  if (_formKey.currentState!.validate()) {
-                    // Process registration
-                    // _formKey.currentState!.save(); // To call onSaved on TextFormFields if needed
-                    print('Registration form is valid');
-                    // Placeholder: Show a success message or navigate
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Processing Registration...')),
-                    );
-                  }
-                },
-                child: const Text('Register'),
-              ),
+              authViewModel.isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16.0),
+                        textStyle: const TextStyle(fontSize: 18),
+                      ),
+                      onPressed: _submitForm,
+                      child: const Text('Register'),
+                    ),
               const SizedBox(height: 16),
-              // Login Link
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8.0),
                 child: Row(
@@ -177,13 +173,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   children: <Widget>[
                     const Text('Already have an account? '),
                     TextButton(
-                      onPressed: () {
-                        // Navigate to Login Screen
+                      onPressed: authViewModel.isLoading ? null : () {
                         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
-                        // if (Navigator.canPop(context)) {
-                        //    Navigator.pop(context); // Go back to WelcomeScreen for now
-                        // } 
-                        // print('Navigate to Login Screen from Registration');
                       },
                       child: const Text('Login'),
                     ),
