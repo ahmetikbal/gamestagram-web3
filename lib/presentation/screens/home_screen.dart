@@ -4,6 +4,7 @@ import '../../application/view_models/auth_view_model.dart';
 import '../../application/view_models/game_view_model.dart';
 import '../../data/models/game_model.dart';
 import '../widgets/game_frame_widget.dart';
+import 'profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -39,6 +40,13 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: Text(user != null ? 'Welcome, ${user.username}!' : 'Gamestagram'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.person_outline),
+            tooltip: 'Profile',
+            onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen()));
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Logout',
