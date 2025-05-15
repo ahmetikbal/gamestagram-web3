@@ -106,6 +106,17 @@ class GameViewModel extends ChangeNotifier {
     }
   }
 
+  bool isGameLikedByUser(String gameId, String? userId) {
+    if (userId == null) return false;
+    final game = _games.firstWhere((g) => g.id == gameId, orElse: () => GameModel(id: '', title: ''));
+    return game.isLikedByCurrentUser;
+  }
+
+  int getGameLikeCount(String gameId) {
+    final game = _games.firstWhere((g) => g.id == gameId, orElse: () => GameModel(id: '', title: ''));
+    return game.likeCount;
+  }
+
   Future<void> fetchCommentsForGame(String gameId) async {
     _setLoadingComments(true);
     try {
