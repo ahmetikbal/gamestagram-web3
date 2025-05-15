@@ -6,6 +6,7 @@ class AuthService {
   static const String _usersKey = 'registered_users';
   static const String _passwordsKey = 'user_passwords'; // Stores email:password
   static const String _userIdCounterKey = 'user_id_counter';
+  static const String _lastLoggedInUserEmailKey = 'last_logged_in_user_email'; // New key
 
   Map<String, UserModel> _mockUserDetails = {}; // email: UserModel
   Map<String, String> _mockUserPasswords = {}; // email: password
@@ -54,7 +55,8 @@ class AuthService {
       await prefs.setString(_usersKey, jsonEncode(userList));
       await prefs.setString(_passwordsKey, jsonEncode(_mockUserPasswords));
       await prefs.setInt(_userIdCounterKey, _userIdCounter);
-      print('[AuthService] Saved data to SharedPreferences. Users: ${_mockUserDetails.length}, Counter: $_userIdCounter');
+      // Note: We don't save _lastLoggedInUserEmailKey here directly as it's managed by login/logout specifically
+      print('[AuthService] Saved general data to SharedPreferences. Users: ${_mockUserDetails.length}, Counter: $_userIdCounter');
     } catch (e) {
       print('[AuthService] Error saving data to SharedPreferences: $e');
     }
@@ -85,7 +87,7 @@ class AuthService {
     _mockUserPasswords[email] = password; // In a real app, hash the password!
     _mockUserDetails[email] = newUser;
     
-    await _saveDataToPrefs(); // Save after successful registration
+    await _saveDataToPrefs(); // Save general user data
 
     print('[AuthService] Registration successful for $email. Stored user: ${newUser.username}, Stored pass: $password');
     print('[AuthService] Current _mockUserDetails: $_mockUserDetails');
@@ -122,6 +124,14 @@ class AuthService {
 
     if (foundUser != null && userEmailKey != null && _mockUserPasswords[userEmailKey] == password) {
       print('[AuthService] Login successful for ${foundUser.username}. Password match.');
+      // Store the logged-in user's email
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_lastLoggedInUserEmailKey, userEmailKey);
+        print('[AuthService] Stored last logged-in user email: $userEmailKey');
+      } catch (e) {
+        print('[AuthService] Error saving last logged-in user email: $e');
+      }
       return {'success': true, 'message': 'Login successful', 'user': foundUser};
     } else {
       print('[AuthService] Login failed for $emailOrUsername.');
@@ -139,10 +149,34 @@ class AuthService {
     }
   }
 
+  Future<UserModel?> tryAutoLogin() async {
+    await _ensurePrefsLoaded();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? loggedInEmail = prefs.getString(_lastLoggedInUserEmailKey);
+      if (loggedInEmail != null && _mockUserDetails.containsKey(loggedInEmail)) {
+        print('[AuthService] Auto-login successful for email: $loggedInEmail');
+        return _mockUserDetails[loggedInEmail];
+      }
+      print('[AuthService] No last logged-in user found or user details missing.');
+      return null;
+    } catch (e) {
+      print('[AuthService] Error during tryAutoLogin: $e');
+      return null;
+    }
+  }
+
   // Placeholder for logout if needed later
   Future<void> logout() async {
     await Future.delayed(const Duration(milliseconds: 500));
     // Clear session, etc.
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_lastLoggedInUserEmailKey);
+      print('[AuthService] Cleared last logged-in user email.');
+    } catch (e) {
+      print('[AuthService] Error clearing last logged-in user email: $e');
+    }
     print('[AuthService] User logged out');
   }
 } 

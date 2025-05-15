@@ -14,6 +14,25 @@ class AuthViewModel extends ChangeNotifier {
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
 
+  // Constructor to try auto-login when the ViewModel is created
+  AuthViewModel() {
+    _tryAutoLogin();
+  }
+
+  Future<void> _tryAutoLogin() async {
+    _setLoading(true); // Indicate loading during auto-login attempt
+    print('[AuthViewModel] Attempting auto-login...');
+    final user = await _authService.tryAutoLogin();
+    if (user != null) {
+      _currentUser = user;
+      print('[AuthViewModel] Auto-login successful. User: ${_currentUser?.username}');
+    } else {
+      print('[AuthViewModel] Auto-login failed or no saved user.');
+    }
+    _setLoading(false);
+    notifyListeners(); // Notify listeners regardless of outcome to update UI
+  }
+
   void _setLoading(bool loading) {
     _isLoading = loading;
     notifyListeners();
@@ -66,15 +85,17 @@ class AuthViewModel extends ChangeNotifier {
       password: password,
     );
     print('[AuthViewModel] Response from AuthService.login: $response');
-    _setLoading(false);
+    // _setLoading(false); // Moved after potential currentUser update to avoid race condition with UI
 
     if (response['success']) {
       _currentUser = response['user'];
+      _setLoading(false); // Set loading false after state update
       print('[AuthViewModel] Login success. CurrentUser set to: ${_currentUser?.username} (ID: ${_currentUser?.id})');
       notifyListeners();
       return true;
     } else {
       _errorMessage = response['message'];
+      _setLoading(false); // Set loading false after state update
       print('[AuthViewModel] Login error: $_errorMessage');
       notifyListeners();
       return false;
@@ -84,7 +105,7 @@ class AuthViewModel extends ChangeNotifier {
   Future<void> logout() async {
     _setLoading(true);
     print('[AuthViewModel] Logging out user: ${_currentUser?.username}');
-    await _authService.logout();
+    await _authService.logout(); // This now clears SharedPreferences via AuthService
     _currentUser = null;
     _setLoading(false);
     print('[AuthViewModel] User logged out. CurrentUser is now: $_currentUser');
