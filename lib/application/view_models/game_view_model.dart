@@ -15,6 +15,9 @@ class GameViewModel extends ChangeNotifier {
   List<GameModel> _games = [];
   List<GameModel> get games => _games;
 
+  List<GameModel> _savedGames = [];
+  List<GameModel> get savedGames => _savedGames;
+
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
 
@@ -106,6 +109,66 @@ class GameViewModel extends ChangeNotifier {
     }
   }
 
+  Future<void> toggleSaveGame(String gameId, String userId) async {
+    final gameIndex = _games.indexWhere((g) => g.id == gameId);
+    if (gameIndex == -1) return;
+
+    final game = _games[gameIndex];
+    final originalIsSaved = game.isSavedByCurrentUser;
+
+    // Optimistic update
+    game.isSavedByCurrentUser = !game.isSavedByCurrentUser;
+    notifyListeners();
+
+    try {
+      final actualSavedState = await _socialService.toggleSaveGame(gameId, userId);
+      _games[gameIndex].isSavedByCurrentUser = actualSavedState;
+
+      // Update saved games list
+      await fetchSavedGames(userId);
+      
+      notifyListeners();
+      print('[GameViewModel] Game $gameId save toggled by $userId. New status: ${game.isSavedByCurrentUser}');
+    } catch (e) {
+      print('[GameViewModel] Error toggling save for $gameId: $e. Reverting optimistic update.');
+      _games[gameIndex].isSavedByCurrentUser = originalIsSaved;
+      notifyListeners();
+    }
+  }
+
+  Future<void> fetchSavedGames(String userId) async {
+    _savedGames = [];
+    
+    try {
+      // Get list of saved game IDs
+      final savedGameIds = _socialService.getSavedGameIds(userId);
+      
+      // Create a Set to track already added game IDs to avoid duplicates
+      final Set<String> addedGameIds = {};
+      
+      // Filter games that are saved
+      for (var game in _games) {
+        if (savedGameIds.contains(game.id) && !addedGameIds.contains(game.id)) {
+          game.isSavedByCurrentUser = true;
+          _savedGames.add(game);
+          addedGameIds.add(game.id);
+        }
+      }
+
+      print('[GameViewModel] Fetched ${_savedGames.length} saved games for user $userId');
+      notifyListeners();
+    } catch (e) {
+      print('[GameViewModel] Error fetching saved games: $e');
+    }
+  }
+
+  // Check if a game is saved by the user
+  bool isGameSavedByUser(String gameId, String? userId) {
+    if (userId == null) return false;
+    final game = _games.firstWhere((g) => g.id == gameId, orElse: () => GameModel(id: '', title: ''));
+    return game.isSavedByCurrentUser;
+  }
+
   bool isGameLikedByUser(String gameId, String? userId) {
     if (userId == null) return false;
     final game = _games.firstWhere((g) => g.id == gameId, orElse: () => GameModel(id: '', title: ''));
@@ -143,6 +206,16 @@ class GameViewModel extends ChangeNotifier {
       return true;
     }
     return false;
+  }
+
+  // Get the number of likes made by a user
+  int getUserLikeCount(String userId) {
+    return _socialService.getUserLikeCount(userId);
+  }
+  
+  // Get the number of comments made by a user
+  int getUserCommentCount(String userId) {
+    return _socialService.getUserCommentCount(userId);
   }
 }
  

@@ -2,12 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
+import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
+import '../../application/view_models/game_view_model.dart';
+import '../../application/view_models/auth_view_model.dart';
 
 class GameWebViewScreen extends StatefulWidget {
   final String gameUrl;
   final String gameTitle;
+  final String gameId;
 
-  const GameWebViewScreen({Key? key, required this.gameUrl, required this.gameTitle}) : super(key: key);
+  const GameWebViewScreen({
+    Key? key, 
+    required this.gameUrl, 
+    required this.gameTitle,
+    required this.gameId,
+  }) : super(key: key);
 
   @override
   State<GameWebViewScreen> createState() => _GameWebViewScreenState();
@@ -190,9 +200,27 @@ Page resource error:
     });
   }
 
+  void _shareGame() {
+    final String gameDeepLink = 'gamestagram://game/${widget.gameId}';
+    final String message = 'Check out this game: ${widget.gameTitle}\n$gameDeepLink';
+    
+    Share.share(message);
+    print('[GameWebViewScreen] Shared game: ${widget.gameTitle} with link: $gameDeepLink');
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final authViewModel = Provider.of<AuthViewModel>(context);
+    final gameViewModel = Provider.of<GameViewModel>(context);
+
+    final currentUser = authViewModel.currentUser;
+    final userId = currentUser?.id;
+
+    // Check if game is saved by current user
+    final bool isSaved = userId != null ? 
+      gameViewModel.isGameSavedByUser(widget.gameId, userId) : false;
+    
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.gameTitle, style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.onPrimary)),
@@ -201,6 +229,27 @@ Page resource error:
           icon: Icon(Icons.arrow_back, color: theme.appBarTheme.iconTheme?.color ?? theme.colorScheme.onPrimary),
           onPressed: () => Navigator.of(context).pop(),
         ),
+        actions: [
+          // Save button
+          if (userId != null)
+            IconButton(
+              icon: Icon(
+                isSaved ? Icons.bookmark : Icons.bookmark_border,
+                color: theme.appBarTheme.iconTheme?.color ?? theme.colorScheme.onPrimary,
+              ),
+              onPressed: () {
+                gameViewModel.toggleSaveGame(widget.gameId, userId);
+              },
+            ),
+          // Share button
+          IconButton(
+            icon: Icon(
+              Icons.share,
+              color: theme.appBarTheme.iconTheme?.color ?? theme.colorScheme.onPrimary,
+            ),
+            onPressed: _shareGame,
+          ),
+        ],
       ),
       body: Stack(
         children: [

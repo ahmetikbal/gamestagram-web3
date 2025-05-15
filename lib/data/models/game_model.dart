@@ -6,6 +6,7 @@ class GameModel {
   int likeCount;
   int commentCount;
   bool isLikedByCurrentUser;
+  bool isSavedByCurrentUser;
 
   GameModel({
     required this.id,
@@ -15,5 +16,6 @@ class GameModel {
     this.likeCount = 0,
     this.commentCount = 0,
     this.isLikedByCurrentUser = false,
+    this.isSavedByCurrentUser = false,
   });
 }

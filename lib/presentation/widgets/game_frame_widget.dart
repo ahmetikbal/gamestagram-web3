@@ -5,6 +5,7 @@ import '../../application/view_models/game_view_model.dart';
 import '../../application/view_models/auth_view_model.dart';
 import '../screens/game_webview_screen.dart';
 import 'comment_panel_widget.dart';
+import 'package:share_plus/share_plus.dart';
 
 class GameFrameWidget extends StatelessWidget {
   final GameModel game;
@@ -14,14 +15,27 @@ class GameFrameWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    final gameViewModel = Provider.of<GameViewModel>(context);
     final currentUser = authViewModel.currentUser;
     final theme = Theme.of(context);
     final onBackgroundColor = theme.colorScheme.onBackground;
     final primaryAccentColor = theme.colorScheme.primary;
     final secondaryIconColor = theme.colorScheme.onSurface.withOpacity(0.7);
 
+    // Check if game is saved
+    final bool isSaved = currentUser != null ? 
+      gameViewModel.isGameSavedByUser(game.id, currentUser.id) : false;
+
     // Debug: Check if game has URL
     print('Building GameFrameWidget for ${game.title}, gameUrl: ${game.gameUrl}');
+
+    void _shareGame() {
+      final String gameDeepLink = 'gamestagram://game/${game.id}';
+      final String message = 'Check out this game: ${game.title}\n$gameDeepLink';
+      
+      Share.share(message);
+      print('[GameFrameWidget] Shared game: ${game.title} with link: $gameDeepLink');
+    }
 
     Widget content = Container(
       alignment: Alignment.center,
@@ -170,9 +184,34 @@ class GameFrameWidget extends StatelessWidget {
                   tooltip: 'Comment',
                 ),
                 const SizedBox(height: 12),
-                IconButton(icon: Icon(Icons.share_outlined, color: secondaryIconColor, size: 30), onPressed: () { print('Share tapped for ${game.id}'); }, tooltip: 'Share'),
+                IconButton(
+                  icon: Icon(
+                    Icons.share_outlined, 
+                    color: secondaryIconColor, 
+                    size: 30
+                  ), 
+                  onPressed: _shareGame,
+                  tooltip: 'Share'
+                ),
                 const SizedBox(height: 12),
-                IconButton(icon: Icon(Icons.bookmark_border_outlined, color: secondaryIconColor, size: 30), onPressed: () { print('Save tapped for ${game.id}'); }, tooltip: 'Save'),
+                IconButton(
+                  icon: Icon(
+                    isSaved ? Icons.bookmark : Icons.bookmark_border_outlined, 
+                    color: isSaved ? primaryAccentColor : secondaryIconColor, 
+                    size: 30
+                  ), 
+                  onPressed: () {
+                    if (currentUser != null) {
+                      Provider.of<GameViewModel>(context, listen: false)
+                          .toggleSaveGame(game.id, currentUser.id);
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Please login to save games')),
+                      );
+                    }
+                  }, 
+                  tooltip: 'Save'
+                ),
               ],
             ),
           )
@@ -190,6 +229,7 @@ class GameFrameWidget extends StatelessWidget {
               builder: (context) => GameWebViewScreen(
                 gameUrl: game.gameUrl!,
                 gameTitle: game.title,
+                gameId: game.id,
               ),
             ),
           );
