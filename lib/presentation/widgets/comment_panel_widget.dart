@@ -1,3 +1,4 @@
+import 'dart:ui'; // For ImageFilter
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../data/models/game_model.dart';
@@ -53,78 +54,121 @@ class _CommentPanelWidgetState extends State<CommentPanelWidget> {
 
   @override
   Widget build(BuildContext context) {
+    // Use Theme colors for better adaptability
+    final theme = Theme.of(context);
+    final onSurfaceColor = theme.colorScheme.onSurface;
+    final surfaceColor = theme.colorScheme.surface;
+    final primaryAccentColor = theme.colorScheme.primary;
+
     return Padding(
-      padding: MediaQuery.of(context).viewInsets,
-      child: Container(
-        padding: const EdgeInsets.all(16.0),
-        height: MediaQuery.of(context).size.height * 0.7,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Comments for ${widget.game.title}', style: Theme.of(context).textTheme.titleLarge),
-                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context))
-              ],
+      padding: MediaQuery.of(context).viewInsets, // Handles keyboard overlap
+      child: ClipRRect( // Clip the blur effect to the rounded corners
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(20.0),
+          topRight: Radius.circular(20.0),
+        ),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0), // Adjust blur intensity
+          child: Container(
+            padding: const EdgeInsets.all(16.0),
+            height: MediaQuery.of(context).size.height * 0.7,
+            decoration: BoxDecoration( // Apply semi-transparent background
+              color: surfaceColor.withOpacity(0.85), // Semi-transparent surface color
+              // No need for borderRadius here, ClipRRect handles it
             ),
-            const Divider(),
-            Expanded(
-              child: Consumer<GameViewModel>(
-                builder: (context, gvm, child) {
-                  if (gvm.isLoadingComments) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (gvm.currentViewingGameComments.isEmpty) {
-                    return const Center(child: Text('No comments yet. Be the first!'));
-                  }
-                  return ListView.builder(
-                    itemCount: gvm.currentViewingGameComments.length,
-                    itemBuilder: (context, index) {
-                      final comment = gvm.currentViewingGameComments[index];
-                      return Card(
-                        margin: const EdgeInsets.symmetric(vertical: 4.0),
-                        child: ListTile(
-                          leading: CircleAvatar(child: Text(comment.userId.isNotEmpty ? comment.userId[0].toUpperCase() : 'U')),
-                          title: Text(comment.text ?? ''),
-                          subtitle: Text('User ID: ${comment.userId} \n${comment.timestamp.toLocal().toString().substring(0, 16)}'),
-                          isThreeLine: true,
-                        ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Comments for ${widget.game.title}',
+                        style: theme.textTheme.titleLarge?.copyWith(color: onSurfaceColor),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.close, color: onSurfaceColor),
+                      onPressed: () => Navigator.pop(context)
+                    )
+                  ],
+                ),
+                Divider(color: onSurfaceColor.withOpacity(0.5)),
+                Expanded(
+                  child: Consumer<GameViewModel>(
+                    builder: (context, gvm, child) {
+                      if (gvm.isLoadingComments) {
+                        return Center(child: CircularProgressIndicator(color: primaryAccentColor));
+                      }
+                      if (gvm.currentViewingGameComments.isEmpty) {
+                        return Center(child: Text('No comments yet. Be the first!', style: TextStyle(color: onSurfaceColor.withOpacity(0.7))));
+                      }
+                      return ListView.builder(
+                        itemCount: gvm.currentViewingGameComments.length,
+                        itemBuilder: (context, index) {
+                          final comment = gvm.currentViewingGameComments[index];
+                          return Card(
+                            color: surfaceColor.withOpacity(0.9), // Slightly more opaque cards
+                            margin: const EdgeInsets.symmetric(vertical: 4.0),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            elevation: 2,
+                            child: ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: primaryAccentColor,
+                                child: Text(
+                                  comment.userId.isNotEmpty ? comment.userId[0].toUpperCase() : 'U',
+                                  style: TextStyle(color: theme.colorScheme.onPrimary),
+                                ),
+                              ),
+                              title: Text(comment.text ?? '', style: TextStyle(color: onSurfaceColor)),
+                              subtitle: Text(
+                                'User ID: ${comment.userId} \n${comment.timestamp.toLocal().toString().substring(0, 16)}',
+                                style: TextStyle(color: onSurfaceColor.withOpacity(0.7)),
+                              ),
+                              isThreeLine: true,
+                            ),
+                          );
+                        },
                       );
                     },
-                  );
-                },
-              ),
-            ),
-            const Divider(),
-            Padding(
-              padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _commentController,
-                      decoration: const InputDecoration(
-                        hintText: 'Add a comment (max 200 chars)...',
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(vertical: 10.0, horizontal: 10.0),
-                      ),
-                      textInputAction: TextInputAction.send,
-                      onSubmitted: _isPostingComment ? null : (_) => _postComment(),
-                      maxLength: 200,
-                    ),
                   ),
-                  const SizedBox(width: 8),
-                  _isPostingComment 
-                    ? const CircularProgressIndicator() 
-                    : IconButton(
-                        icon: const Icon(Icons.send),
-                        onPressed: _postComment,
+                ),
+                Divider(color: onSurfaceColor.withOpacity(0.5)),
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _commentController,
+                          style: TextStyle(color: onSurfaceColor), // Ensure input text is visible
+                          decoration: InputDecoration(
+                            hintText: 'Add a comment (max 200 chars)...',
+                            // hintStyle is already set by the theme in main.dart
+                            // border: OutlineInputBorder(), // Using theme's input decoration
+                            // contentPadding: EdgeInsets.symmetric(vertical: 10.0, horizontal: 10.0), // Theme handles this
+                            counterStyle: TextStyle(color: onSurfaceColor.withOpacity(0.7)), // For maxLength counter
+                          ),
+                          textInputAction: TextInputAction.send,
+                          onSubmitted: _isPostingComment ? null : (_) => _postComment(),
+                          maxLength: 200,
+                        ),
                       ),
-                ],
-              ),
+                      const SizedBox(width: 8),
+                      _isPostingComment 
+                        ? CircularProgressIndicator(color: primaryAccentColor) 
+                        : IconButton(
+                            icon: Icon(Icons.send, color: primaryAccentColor),
+                            onPressed: _postComment,
+                          ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
