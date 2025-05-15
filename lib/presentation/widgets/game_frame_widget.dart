@@ -14,16 +14,26 @@ class GameFrameWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
     final currentUser = authViewModel.currentUser;
+    final theme = Theme.of(context);
+    final onBackgroundColor = theme.colorScheme.onBackground;
+    final primaryAccentColor = theme.colorScheme.primary;
+    final secondaryIconColor = theme.colorScheme.onSurface.withOpacity(0.7);
 
     return Container(
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey),
-        borderRadius: BorderRadius.circular(8.0),
-        color: Colors.primaries[int.parse(game.id) % Colors.primaries.length]
-            .withOpacity(0.3),
+        border: Border.all(color: theme.colorScheme.surface.withOpacity(0.5)),
+        borderRadius: BorderRadius.circular(12.0),
+        color: theme.scaffoldBackgroundColor.withOpacity(0.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 8,
+            offset: Offset(0, 4),
+          )
+        ]
       ),
-      margin: const EdgeInsets.all(8.0),
+      margin: const EdgeInsets.all(12.0),
       child: Stack(
         children: [
           Center(
@@ -31,24 +41,14 @@ class GameFrameWidget extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  'Game ID: ${game.id}',
-                  style: Theme.of(context).textTheme.labelSmall,
+                  game.title,
+                  style: theme.textTheme.titleLarge?.copyWith(color: onBackgroundColor),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  game.title,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
+                  game.description,
+                  style: theme.textTheme.bodyMedium?.copyWith(color: onBackgroundColor.withOpacity(0.8)),
                 ),
-                if (game.description.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Text(
-                      game.description,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
               ],
             ),
           ),
@@ -60,12 +60,14 @@ class GameFrameWidget extends StatelessWidget {
               children: [
                 Consumer<GameViewModel>(
                   builder: (context, gvm, child) {
+                    bool isLiked = gvm.isGameLikedByUser(game.id, currentUser?.id);
+                    int currentLikeCount = gvm.getGameLikeCount(game.id);
                     return Column(
                       children: [
                         IconButton(
                           icon: Icon(
-                            game.isLikedByCurrentUser ? Icons.favorite : Icons.favorite_border,
-                            color: game.isLikedByCurrentUser ? Colors.red : Colors.grey[700],
+                            isLiked ? Icons.favorite : Icons.favorite_border,
+                            color: isLiked ? primaryAccentColor : secondaryIconColor,
                             size: 30,
                           ),
                           onPressed: () {
@@ -79,30 +81,30 @@ class GameFrameWidget extends StatelessWidget {
                           },
                           tooltip: 'Like',
                         ),
-                        Text(game.likeCount.toString(), style: TextStyle(color: Colors.grey[700])),
+                        Text(currentLikeCount.toString(), style: TextStyle(color: secondaryIconColor, fontSize: 12)),
                       ],
                     );
                   }
                 ),
                 const SizedBox(height: 12),
                 IconButton(
-                  icon: Icon(Icons.comment_outlined, color: Colors.grey[700], size: 30),
+                  icon: Icon(Icons.comment_outlined, color: secondaryIconColor, size: 30),
                   onPressed: () {
-                    print('Comment tapped for ${game.id}');
                     showModalBottomSheet(
                       context: context,
                       isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
                       builder: (BuildContext bc) {
                         return CommentPanelWidget(game: game);
                       },
                     );
                   },
-                  tooltip: 'Comment'
+                  tooltip: 'Comment',
                 ),
                 const SizedBox(height: 12),
-                IconButton(icon: Icon(Icons.share_outlined, color: Colors.grey[700], size: 30), onPressed: () { print('Share tapped for ${game.id}'); }, tooltip: 'Share'),
+                IconButton(icon: Icon(Icons.share_outlined, color: secondaryIconColor, size: 30), onPressed: () { print('Share tapped for ${game.id}'); }, tooltip: 'Share'),
                 const SizedBox(height: 12),
-                IconButton(icon: Icon(Icons.bookmark_border_outlined, color: Colors.grey[700], size: 30), onPressed: () { print('Save tapped for ${game.id}'); }, tooltip: 'Save'),
+                IconButton(icon: Icon(Icons.bookmark_border_outlined, color: secondaryIconColor, size: 30), onPressed: () { print('Save tapped for ${game.id}'); }, tooltip: 'Save'),
               ],
             ),
           )
