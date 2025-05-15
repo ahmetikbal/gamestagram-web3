@@ -17,3 +17,4 @@ class InteractionModel {
     required this.timestamp,
   });
 }
+ 

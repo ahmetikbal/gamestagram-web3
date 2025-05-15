@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../data/models/game_model.dart';
 import '../../application/view_models/game_view_model.dart';
 import '../../application/view_models/auth_view_model.dart';
+import '../screens/game_webview_screen.dart';
 import 'comment_panel_widget.dart';
 
 class GameFrameWidget extends StatelessWidget {
@@ -19,7 +20,10 @@ class GameFrameWidget extends StatelessWidget {
     final primaryAccentColor = theme.colorScheme.primary;
     final secondaryIconColor = theme.colorScheme.onSurface.withOpacity(0.7);
 
-    return Container(
+    // Debug: Check if game has URL
+    print('Building GameFrameWidget for ${game.title}, gameUrl: ${game.gameUrl}');
+
+    Widget content = Container(
       alignment: Alignment.center,
       decoration: BoxDecoration(
         border: Border.all(color: theme.colorScheme.surface.withOpacity(0.5)),
@@ -36,6 +40,45 @@ class GameFrameWidget extends StatelessWidget {
       margin: const EdgeInsets.all(12.0),
       child: Stack(
         children: [
+          // Overlay a "Play Game" gradient banner if this game has a URL
+          if (game.gameUrl != null && game.gameUrl!.isNotEmpty)
+            Positioned(
+              top: 10,
+              right: 10,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [theme.colorScheme.primary, theme.colorScheme.secondary],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+                  borderRadius: BorderRadius.circular(15),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      spreadRadius: 1,
+                      blurRadius: 3,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.videogame_asset, color: theme.colorScheme.onPrimary, size: 16),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Playable',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: theme.colorScheme.onPrimary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -49,6 +92,31 @@ class GameFrameWidget extends StatelessWidget {
                   game.description,
                   style: theme.textTheme.bodyMedium?.copyWith(color: onBackgroundColor.withOpacity(0.8)),
                 ),
+                
+                // Add a play button indicator if the game has a URL
+                if (game.gameUrl != null && game.gameUrl!.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary.withOpacity(0.8),
+                      borderRadius: BorderRadius.circular(12)
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.play_circle_outline, color: theme.colorScheme.onPrimary),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Play Game',
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: theme.colorScheme.onPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -111,5 +179,25 @@ class GameFrameWidget extends StatelessWidget {
         ],
       ),
     );
+
+    if (game.gameUrl != null && game.gameUrl!.isNotEmpty) {
+      return InkWell(
+        onTap: () {
+          print('Game widget tapped! Navigating to WebView for game: ${game.title}, URL: ${game.gameUrl}');
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => GameWebViewScreen(
+                gameUrl: game.gameUrl!,
+                gameTitle: game.title,
+              ),
+            ),
+          );
+        },
+        child: content,
+      );
+    } else {
+      return content;
+    }
   }
 }

@@ -65,3 +65,4 @@ class SocialService {
     return _interactions.where((i) => i.gameId == gameId && i.type == InteractionType.like).length;
   }
 }
+ 
