@@ -19,7 +19,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.7.2
+  sdk: ^3.7.2 # Note: Your SDK constraint is ^3.7.2. google_fonts 6.2.1 requires Flutter SDK >=3.19.2 and Dart SDK >=2.14.0 <4.0.0. Ensure your Flutter SDK version is compatible.
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -36,7 +36,9 @@ dependencies:
   cupertino_icons: ^1.0.8
   provider: ^6.1.5
   shared_preferences: ^2.5.3
-
+  google_fonts: ^6.2.1 # <-- Added google_fonts
+  webview_flutter: ^4.7.0 # Or the latest version
+  
 dev_dependencies:
   flutter_test:
     sdk: flutter

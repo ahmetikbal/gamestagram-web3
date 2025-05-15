@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart'; // Import Provider
+import 'package:google_fonts/google_fonts.dart'; // For direct font use if needed
 import '../../application/view_models/auth_view_model.dart'; // Import AuthViewModel
 import 'login_screen.dart'; 
 
@@ -13,8 +14,8 @@ class RegistrationScreen extends StatefulWidget {
 class _RegistrationScreenState extends State<RegistrationScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _usernameController = TextEditingController(); // Added
-  final TextEditingController _emailController = TextEditingController(); // Added
+  final TextEditingController _usernameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
 
   bool _isPasswordObscured = true;
   bool _isConfirmPasswordObscured = true;
@@ -22,8 +23,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   @override
   void dispose() {
     _passwordController.dispose();
-    _usernameController.dispose(); // Added
-    _emailController.dispose(); // Added
+    _usernameController.dispose();
+    _emailController.dispose();
     super.dispose();
   }
 
@@ -31,15 +32,18 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     if (_formKey.currentState!.validate()) {
       final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
       final success = await authViewModel.register(
-        username: _usernameController.text,
-        email: _emailController.text,
-        password: _passwordController.text,
+        username: _usernameController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
       );
 
-      if (mounted) { // Check if the widget is still in the tree
+      if (mounted) { 
         if (success) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Registration successful! Please login.')),
+            SnackBar(
+              content: const Text('Registration successful! Please login.'),
+              backgroundColor: Theme.of(context).colorScheme.primary, // Use a success color or primary
+            ),
           );
           Navigator.pushReplacement(
             context,
@@ -47,7 +51,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(authViewModel.errorMessage ?? 'Registration failed')),
+            SnackBar(
+              content: Text(authViewModel.errorMessage ?? 'Registration failed'),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
           );
         }
       }
@@ -56,41 +63,42 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authViewModel = Provider.of<AuthViewModel>(context); // For isLoading and error message
+    final authViewModel = Provider.of<AuthViewModel>(context);
+    final theme = Theme.of(context); // Access theme data
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Create Account'),
+        title: const Text('Create Gamestagram Account'),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
         child: Form(
           key: _formKey,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              const Icon(Icons.gamepad, size: 80, color: Colors.blueAccent),
+              Icon(Icons.app_registration_rounded, size: 80, color: theme.colorScheme.primary),
               const SizedBox(height: 24),
               Text(
-                'Create Your Gamestagram Account',
+                'Join Gamestagram',
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.headlineSmall,
+                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 32),
               TextFormField(
-                controller: _usernameController, // Added
-                decoration: const InputDecoration(
+                controller: _usernameController,
+                decoration: InputDecoration(
                   labelText: 'Username',
                   hintText: 'Enter your username (4-20 characters)',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.person_outline),
+                  prefixIcon: Icon(Icons.person_outline_rounded, color: theme.colorScheme.primary.withOpacity(0.7)),
                 ),
+                style: theme.textTheme.bodyLarge,
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
+                  if (value == null || value.trim().isEmpty) {
                     return 'Please enter a username';
                   }
-                  if (value.length < 4 || value.length > 20) {
+                  if (value.trim().length < 4 || value.trim().length > 20) {
                     return 'Username must be between 4 and 20 characters';
                   }
                   return null;
@@ -98,19 +106,19 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               ),
               const SizedBox(height: 16),
               TextFormField(
-                controller: _emailController, // Added
-                decoration: const InputDecoration(
+                controller: _emailController,
+                decoration: InputDecoration(
                   labelText: 'Email',
                   hintText: 'Enter your email address',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.email_outlined),
+                  prefixIcon: Icon(Icons.email_outlined, color: theme.colorScheme.primary.withOpacity(0.7)),
                 ),
                 keyboardType: TextInputType.emailAddress,
+                style: theme.textTheme.bodyLarge,
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
+                  if (value == null || value.trim().isEmpty) {
                     return 'Please enter an email address';
                   }
-                  if (!RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$').hasMatch(value)) {
+                  if (!RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$').hasMatch(value.trim())) {
                     return 'Please enter a valid email address';
                   }
                   return null;
@@ -121,14 +129,18 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 controller: _passwordController,
                 decoration: InputDecoration(
                   labelText: 'Password',
-                  hintText: 'Enter your password (min. 8 characters, 1 digit)',
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.lock_outline),
+                  hintText: 'Min. 8 characters, 1 digit',
+                  prefixIcon: Icon(Icons.lock_outline_rounded, color: theme.colorScheme.primary.withOpacity(0.7)),
                   suffixIcon: IconButton(
-                    icon: Icon(_isPasswordObscured ? Icons.visibility_off : Icons.visibility),
-                    onPressed: () => setState(() => _isPasswordObscured = !_isPasswordObscured)),
+                    icon: Icon(
+                      _isPasswordObscured ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                      color: theme.colorScheme.primary.withOpacity(0.7),
+                    ),
+                    onPressed: () => setState(() => _isPasswordObscured = !_isPasswordObscured)
+                  ),
                 ),
                 obscureText: _isPasswordObscured,
+                style: theme.textTheme.bodyLarge,
                 validator: (value) {
                   if (value == null || value.isEmpty) return 'Please enter a password';
                   if (value.length < 8) return 'Password must be at least 8 characters long';
@@ -141,13 +153,17 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 decoration: InputDecoration(
                   labelText: 'Confirm Password',
                   hintText: 'Re-enter your password',
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.lock_outline),
+                  prefixIcon: Icon(Icons.lock_outline_rounded, color: theme.colorScheme.primary.withOpacity(0.7)),
                   suffixIcon: IconButton(
-                    icon: Icon(_isConfirmPasswordObscured ? Icons.visibility_off : Icons.visibility),
-                    onPressed: () => setState(() => _isConfirmPasswordObscured = !_isConfirmPasswordObscured)),
+                    icon: Icon(
+                      _isConfirmPasswordObscured ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                      color: theme.colorScheme.primary.withOpacity(0.7),
+                    ),
+                    onPressed: () => setState(() => _isConfirmPasswordObscured = !_isConfirmPasswordObscured)
+                  ),
                 ),
                 obscureText: _isConfirmPasswordObscured,
+                style: theme.textTheme.bodyLarge,
                 validator: (value) {
                   if (value == null || value.isEmpty) return 'Please confirm your password';
                   if (value != _passwordController.text) return 'Passwords do not match';
@@ -156,31 +172,27 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               ),
               const SizedBox(height: 32),
               authViewModel.isLoading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary))
                   : ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16.0),
-                        textStyle: const TextStyle(fontSize: 18),
-                      ),
+                      // Style inherited from theme
                       onPressed: _submitForm,
-                      child: const Text('Register'),
+                      child: const Text('Create Account'),
                     ),
-              const SizedBox(height: 16),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: <Widget>[
-                    const Text('Already have an account? '),
-                    TextButton(
-                      onPressed: authViewModel.isLoading ? null : () {
-                        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
-                      },
-                      child: const Text('Login'),
-                    ),
-                  ],
-                ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  Text('Already have an account? ', style: theme.textTheme.bodyMedium),
+                  TextButton(
+                    // Style inherited from theme
+                    onPressed: authViewModel.isLoading ? null : () {
+                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
+                    },
+                    child: const Text('Login Now'),
+                  ),
+                ],
               ),
+              const SizedBox(height: 20), // Extra space at the bottom
             ],
           ),
         ),
