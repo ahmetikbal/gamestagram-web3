@@ -3,14 +3,148 @@ import 'package:provider/provider.dart';
 import '../../data/models/game_model.dart';
 import '../../application/view_models/game_view_model.dart';
 import '../../application/view_models/auth_view_model.dart';
-import '../screens/game_webview_screen.dart';
 import 'comment_panel_widget.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+import 'dart:ui';
+import 'dart:math' as math;
 
-class GameFrameWidget extends StatelessWidget {
+class GameFrameWidget extends StatefulWidget {
   final GameModel game;
+  final VoidCallback? onPlay;
 
-  const GameFrameWidget({Key? key, required this.game}) : super(key: key);
+  const GameFrameWidget({Key? key, required this.game, this.onPlay}) : super(key: key);
+
+  @override
+  _GameFrameWidgetState createState() => _GameFrameWidgetState();
+}
+
+class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingObserver {
+  bool _isGameLoaded = false;
+  bool _isGameVisible = false;
+  WebViewController? _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    if (_isGameLoaded && _controller != null) {
+      _cleanupWebView();
+    }
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (_isGameLoaded && _controller != null) {
+      if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+        _pauseWebView();
+      } else if (state == AppLifecycleState.resumed && _isGameVisible) {
+        _resumeWebView();
+      }
+    }
+  }
+
+  void _toggleGameVisibility() {
+    final gameViewModel = Provider.of<GameViewModel>(context, listen: false);
+    
+    setState(() {
+      if (!_isGameVisible) {
+        // First time showing the game
+        if (!_isGameLoaded) {
+          _initializeWebView();
+        }
+        _isGameVisible = true;
+        gameViewModel.setCurrentlyPlayingGame(widget.game.id);
+      } else {
+        // Hide the game but keep it loaded
+        _isGameVisible = false;
+        gameViewModel.setCurrentlyPlayingGame(null);
+      }
+    });
+  }
+
+  void _initializeWebView() {
+    if (_isGameLoaded) return;
+
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onNavigationRequest: (request) => NavigationDecision.navigate,
+          onPageFinished: (url) {
+            setState(() {
+              _isGameLoaded = true;
+            });
+          },
+        ),
+      )
+      ..loadRequest(Uri.parse(widget.game.gameUrl ?? 'about:blank'));
+
+    _isGameLoaded = true;
+  }
+
+  void _pauseWebView() {
+    if (_controller != null) {
+      _controller!.runJavaScript('''
+        // Pause any audio/video elements
+        document.querySelectorAll('audio, video').forEach(function(el) {
+          if(el && !el.paused) { el.pause(); }
+        });
+        
+        // Attempt to pause canvas animations
+        if (window.cancelAnimationFrame) {
+          var id = window.requestAnimationFrame(function(){});
+          while(id--) { window.cancelAnimationFrame(id); }
+        }
+        
+        // Inform game it's paused (for games that support visibility API)
+        document.hidden = true;
+        if (document.dispatchEvent) {
+          document.dispatchEvent(new Event('visibilitychange'));
+        }
+      ''');
+    }
+  }
+
+  void _resumeWebView() {
+    if (_controller != null) {
+      _controller!.runJavaScript('''
+        // Resume game visibility
+        document.hidden = false;
+        if (document.dispatchEvent) {
+          document.dispatchEvent(new Event('visibilitychange'));
+        }
+      ''');
+    }
+  }
+
+  void _cleanupWebView() {
+    if (_controller != null) {
+      _controller!.runJavaScript('''
+        // Release WebGL contexts
+        var canvas = document.querySelectorAll('canvas');
+        canvas.forEach(function(c) {
+          var gl = c.getContext('webgl') || c.getContext('experimental-webgl');
+          if (gl) {
+            gl.getExtension('WEBGL_lose_context')?.loseContext();
+          }
+        });
+        
+        // Clear any timeouts and intervals
+        var id = window.setTimeout(function() {}, 0);
+        while (id--) {
+          window.clearTimeout(id);
+          window.clearInterval(id);
+        }
+      ''');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -22,118 +156,345 @@ class GameFrameWidget extends StatelessWidget {
     final primaryAccentColor = theme.colorScheme.primary;
     final secondaryIconColor = theme.colorScheme.onSurface.withOpacity(0.7);
 
+    // Get global full view state
+    final bool isGlobalFullView = gameViewModel.isGlobalFullViewEnabled;
+
     // Check if game is saved
     final bool isSaved = currentUser != null ? 
-      gameViewModel.isGameSavedByUser(game.id, currentUser.id) : false;
-
-    // Debug: Check if game has URL
-    print('Building GameFrameWidget for ${game.title}, gameUrl: ${game.gameUrl}');
+      gameViewModel.isGameSavedByUser(widget.game.id, currentUser.id) : false;
 
     void _shareGame() {
-      final String gameDeepLink = 'gamestagram://game/${game.id}';
-      final String message = 'Check out this game: ${game.title}\n$gameDeepLink';
+      final String gameDeepLink = 'gamestagram://game/${widget.game.id}';
+      final String message = 'Check out this game: ${widget.game.title}\n$gameDeepLink';
       
       Share.share(message);
-      print('[GameFrameWidget] Shared game: ${game.title} with link: $gameDeepLink');
     }
 
-    Widget content = Container(
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        border: Border.all(color: theme.colorScheme.surface.withOpacity(0.5)),
-        borderRadius: BorderRadius.circular(12.0),
-        color: theme.scaffoldBackgroundColor.withOpacity(0.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 8,
-            offset: Offset(0, 4),
-          )
-        ]
-      ),
-      margin: const EdgeInsets.all(12.0),
-      child: Stack(
-        children: [
-          // Overlay a "Play Game" gradient banner if this game has a URL
-          if (game.gameUrl != null && game.gameUrl!.isNotEmpty)
-            Positioned(
-              top: 10,
-              right: 10,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [theme.colorScheme.primary, theme.colorScheme.secondary],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                  ),
-                  borderRadius: BorderRadius.circular(15),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
-                      spreadRadius: 1,
-                      blurRadius: 3,
-                      offset: const Offset(0, 2),
-                    ),
+    // Background for the card with game image or placeholder
+    Widget backgroundLayer() {
+      return Container(
+        decoration: BoxDecoration(
+          image: widget.game.imageUrl != null && widget.game.imageUrl!.isNotEmpty
+              ? DecorationImage(
+                  image: NetworkImage(widget.game.imageUrl!),
+                  fit: BoxFit.cover,
+                  colorFilter: isGlobalFullView 
+                      ? null 
+                      : ColorFilter.mode(Colors.black.withOpacity(0.6), BlendMode.darken),
+                )
+              : null,
+          gradient: widget.game.imageUrl == null || widget.game.imageUrl!.isEmpty
+              ? LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    theme.colorScheme.primary.withOpacity(0.7),
+                    theme.colorScheme.secondary.withOpacity(0.7),
                   ],
+                )
+              : null,
+        ),
+        child: widget.game.imageUrl == null || widget.game.imageUrl!.isEmpty
+            ? Center(
+                child: Icon(
+                  Icons.videogame_asset,
+                  size: 80,
+                  color: theme.colorScheme.onPrimary.withOpacity(0.3),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+              )
+            : null,
+      );
+    }
+    
+    // Game content - WebView when visible, otherwise nothing
+    Widget gameLayer() {
+      if (!_isGameVisible || !_isGameLoaded || _controller == null) {
+        return const SizedBox.shrink();
+      }
+      
+      return WebViewWidget(controller: _controller!);
+    }
+
+    // UI overlay with information and buttons
+    Widget uiLayer() {
+      return Stack(
+        children: [
+          // Information overlay (only visible when game is not visible and not in full view)
+          if (!_isGameVisible && !isGlobalFullView)
+            Positioned.fill(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                alignment: Alignment.center,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.videogame_asset, color: theme.colorScheme.onPrimary, size: 16),
-                    const SizedBox(width: 6),
                     Text(
-                      'Playable',
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: theme.colorScheme.onPrimary,
-                        fontWeight: FontWeight.bold,
+                      widget.game.title,
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        color: Colors.white,
+                        shadows: [
+                          Shadow(
+                            offset: const Offset(1, 1),
+                            blurRadius: 3,
+                            color: Colors.black.withOpacity(0.7),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      widget.game.description,
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: Colors.white,
+                        shadows: [
+                          Shadow(
+                            offset: const Offset(1, 1),
+                            blurRadius: 2,
+                            color: Colors.black.withOpacity(0.7),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(50),
+                        onTap: _toggleGameVisibility,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                theme.colorScheme.primary,
+                                theme.colorScheme.secondary,
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(50),
+                            boxShadow: [
+                              BoxShadow(
+                                color: theme.colorScheme.primary.withOpacity(0.5),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.2),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.2),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.play_arrow_rounded,
+                                  color: Colors.white,
+                                  size: 28,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                'PLAY NOW',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  letterSpacing: 1.0,
+                                  shadows: [
+                                    Shadow(
+                                      offset: const Offset(1, 1),
+                                      blurRadius: 3,
+                                      color: Colors.black.withOpacity(0.5),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
             ),
-          Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  game.title,
-                  style: theme.textTheme.titleLarge?.copyWith(color: onBackgroundColor),
+          
+          // Modern "Playable" badge with animation
+          Positioned(
+            top: 10,
+            right: 10,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    theme.colorScheme.primary.withOpacity(0.85),
+                    theme.colorScheme.secondary.withOpacity(0.85),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  game.description,
-                  style: theme.textTheme.bodyMedium?.copyWith(color: onBackgroundColor.withOpacity(0.8)),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.3),
+                    spreadRadius: 1,
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.3),
+                  width: 1,
                 ),
-                
-                // Add a play button indicator if the game has a URL
-                if (game.gameUrl != null && game.gameUrl!.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withOpacity(0.8),
-                      borderRadius: BorderRadius.circular(12)
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Animated game controller icon
+                  TweenAnimationBuilder(
+                    tween: Tween<double>(begin: 0, end: 1),
+                    duration: const Duration(seconds: 2),
+                    curve: Curves.easeInOut,
+                    builder: (context, double value, child) {
+                      return Transform.rotate(
+                        angle: 0.1 * value * math.sin(value * 5),
+                        child: child,
+                      );
+                    },
+                    child: Icon(
+                      Icons.sports_esports_rounded,
+                      color: Colors.white,
+                      size: 18,
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.play_circle_outline, color: theme.colorScheme.onPrimary),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Play Game',
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            color: theme.colorScheme.onPrimary,
-                          ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'PLAYABLE',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                      letterSpacing: 0.5,
+                      shadows: [
+                        Shadow(
+                          offset: const Offset(1, 1),
+                          blurRadius: 3,
+                          color: Colors.black.withOpacity(0.5),
                         ),
                       ],
                     ),
                   ),
                 ],
+              ),
+            ),
+          ),
+          
+          // Control buttons at top
+          Positioned(
+            top: 10,
+            left: 10,
+            child: Row(
+              children: [
+                // Enhanced global full view toggle button (only when game is not playing)
+                if (!_isGameVisible)
+                  Material(
+                    color: Colors.transparent,
+                    child: Container(
+                      margin: const EdgeInsets.all(4),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        onTap: () {
+                          gameViewModel.toggleGlobalFullView();
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: isGlobalFullView 
+                                ? theme.colorScheme.secondary.withOpacity(0.85) 
+                                : Colors.black.withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.3),
+                              width: 1,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 300),
+                            transitionBuilder: (Widget child, Animation<double> animation) {
+                              return ScaleTransition(scale: animation, child: child);
+                            },
+                            child: Icon(
+                              isGlobalFullView 
+                                ? Icons.visibility_outlined 
+                                : Icons.fullscreen_rounded,
+                              key: ValueKey<bool>(isGlobalFullView),
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                
+                // Enhanced close/pause game button (only when game is visible)
+                if (_isGameVisible)
+                  Material(
+                    color: Colors.transparent,
+                    child: Container(
+                      margin: const EdgeInsets.all(4),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        onTap: _toggleGameVisibility,
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withOpacity(0.7),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.3),
+                              width: 1,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.close_rounded,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
+          
+          // Social interaction buttons
           Positioned(
             right: 10,
             bottom: 10, 
@@ -142,102 +503,195 @@ class GameFrameWidget extends StatelessWidget {
               children: [
                 Consumer<GameViewModel>(
                   builder: (context, gvm, child) {
-                    bool isLiked = gvm.isGameLikedByUser(game.id, currentUser?.id);
-                    int currentLikeCount = gvm.getGameLikeCount(game.id);
+                    bool isLiked = gvm.isGameLikedByUser(widget.game.id, currentUser?.id);
+                    int currentLikeCount = gvm.getGameLikeCount(widget.game.id);
                     return Column(
                       children: [
-                        IconButton(
-                          icon: Icon(
-                            isLiked ? Icons.favorite : Icons.favorite_border,
-                            color: isLiked ? primaryAccentColor : secondaryIconColor,
-                            size: 30,
-                          ),
-                          onPressed: () {
+                        // Modern Like button with animation
+                        GestureDetector(
+                          onTap: () {
                             if (currentUser != null) {
-                              Provider.of<GameViewModel>(context, listen: false).toggleLikeGame(game.id, currentUser.id);
+                              Provider.of<GameViewModel>(context, listen: false).toggleLikeGame(widget.game.id, currentUser.id);
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(content: Text('Please login to like games')),
                               );
                             }
                           },
-                          tooltip: 'Like',
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: isLiked ? primaryAccentColor.withOpacity(0.9) : Colors.black.withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: isLiked ? primaryAccentColor.withOpacity(0.5) : Colors.black.withOpacity(0.2),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                )
+                              ],
+                            ),
+                            child: Icon(
+                              isLiked ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
+                              color: Colors.white,
+                              size: 26,
+                            ),
+                          ),
                         ),
-                        Text(currentLikeCount.toString(), style: TextStyle(color: secondaryIconColor, fontSize: 12)),
+                        const SizedBox(height: 4),
+                        Text(
+                          currentLikeCount.toString(), 
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            shadows: [
+                              Shadow(
+                                offset: const Offset(1, 1),
+                                blurRadius: 2,
+                                color: Colors.black.withOpacity(0.7),
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
                     );
                   }
                 ),
-                const SizedBox(height: 12),
-                IconButton(
-                  icon: Icon(Icons.comment_outlined, color: secondaryIconColor, size: 30),
-                  onPressed: () {
+                const SizedBox(height: 16),
+                // Modern Comment button
+                GestureDetector(
+                  onTap: () {
+                    if (_isGameVisible) {
+                      _pauseWebView();
+                    }
                     showModalBottomSheet(
                       context: context,
                       isScrollControlled: true,
                       backgroundColor: Colors.transparent,
                       builder: (BuildContext bc) {
-                        return CommentPanelWidget(game: game);
+                        return CommentPanelWidget(game: widget.game);
                       },
-                    );
+                    ).then((_) {
+                      // Resume the game when comments are closed if it was visible
+                      if (_isGameVisible) {
+                        _resumeWebView();
+                      }
+                    });
                   },
-                  tooltip: 'Comment',
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        )
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.chat_bubble_outline_rounded, 
+                      color: Colors.white, 
+                      size: 26,
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 12),
-                IconButton(
-                  icon: Icon(
-                    Icons.share_outlined, 
-                    color: secondaryIconColor, 
-                    size: 30
-                  ), 
-                  onPressed: _shareGame,
-                  tooltip: 'Share'
+                const SizedBox(height: 16),
+                // Modern Share button
+                GestureDetector(
+                  onTap: _shareGame,
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        )
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.share_rounded, 
+                      color: Colors.white, 
+                      size: 26,
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 12),
-                IconButton(
-                  icon: Icon(
-                    isSaved ? Icons.bookmark : Icons.bookmark_border_outlined, 
-                    color: isSaved ? primaryAccentColor : secondaryIconColor, 
-                    size: 30
-                  ), 
-                  onPressed: () {
+                const SizedBox(height: 16),
+                // Modern Save button with animation
+                GestureDetector(
+                  onTap: () {
                     if (currentUser != null) {
                       Provider.of<GameViewModel>(context, listen: false)
-                          .toggleSaveGame(game.id, currentUser.id);
+                          .toggleSaveGame(widget.game.id, currentUser.id);
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Please login to save games')),
                       );
                     }
                   }, 
-                  tooltip: 'Save'
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isSaved ? primaryAccentColor.withOpacity(0.9) : Colors.black.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: isSaved ? primaryAccentColor.withOpacity(0.5) : Colors.black.withOpacity(0.2),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        )
+                      ],
+                    ),
+                    child: Icon(
+                      isSaved ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded, 
+                      color: Colors.white, 
+                      size: 26,
+                    ),
+                  ),
                 ),
               ],
             ),
           )
         ],
+      );
+    }
+
+    // Return the combined container with all layers
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.7,
+      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Background layer (image or gradient)
+          backgroundLayer(),
+          
+          // Game layer (WebView when visible)
+          gameLayer(),
+          
+          // UI layer (controls and info)
+          uiLayer(),
+        ],
       ),
     );
-
-    if (game.gameUrl != null && game.gameUrl!.isNotEmpty) {
-      return InkWell(
-        onTap: () {
-          print('Game widget tapped! Navigating to WebView for game: ${game.title}, URL: ${game.gameUrl}');
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => GameWebViewScreen(
-                gameUrl: game.gameUrl!,
-                gameTitle: game.title,
-                gameId: game.id,
-              ),
-            ),
-          );
-        },
-        child: content,
-      );
-    } else {
-      return content;
-    }
   }
 }

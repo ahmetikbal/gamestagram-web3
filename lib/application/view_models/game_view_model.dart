@@ -25,9 +25,29 @@ class GameViewModel extends ChangeNotifier {
   List<InteractionModel> get currentViewingGameComments => _currentViewingGameComments;
   bool _isLoadingComments = false;
   bool get isLoadingComments => _isLoadingComments;
+  
+  // Global fullscreen mode flag for all games
+  bool _isGlobalFullViewEnabled = false;
+  bool get isGlobalFullViewEnabled => _isGlobalFullViewEnabled;
+  
+  // Track the currently playing game, if any
+  String? _currentlyPlayingGameId;
+  String? get currentlyPlayingGameId => _currentlyPlayingGameId;
 
   GameViewModel() {
     // fetchInitialGames();
+  }
+  
+  // Toggle global fullscreen mode for all games
+  void toggleGlobalFullView() {
+    _isGlobalFullViewEnabled = !_isGlobalFullViewEnabled;
+    notifyListeners();
+  }
+  
+  // Set the currently playing game
+  void setCurrentlyPlayingGame(String? gameId) {
+    _currentlyPlayingGameId = gameId;
+    notifyListeners();
   }
 
   void _setLoading(bool loading, {bool notify = true}) {
@@ -165,18 +185,18 @@ class GameViewModel extends ChangeNotifier {
   // Check if a game is saved by the user
   bool isGameSavedByUser(String gameId, String? userId) {
     if (userId == null) return false;
-    final game = _games.firstWhere((g) => g.id == gameId, orElse: () => GameModel(id: '', title: ''));
+    final game = _games.firstWhere((g) => g.id == gameId, orElse: () => GameModel(id: '', title: '', description: ''));
     return game.isSavedByCurrentUser;
   }
 
   bool isGameLikedByUser(String gameId, String? userId) {
     if (userId == null) return false;
-    final game = _games.firstWhere((g) => g.id == gameId, orElse: () => GameModel(id: '', title: ''));
+    final game = _games.firstWhere((g) => g.id == gameId, orElse: () => GameModel(id: '', title: '', description: ''));
     return game.isLikedByCurrentUser;
   }
 
   int getGameLikeCount(String gameId) {
-    final game = _games.firstWhere((g) => g.id == gameId, orElse: () => GameModel(id: '', title: ''));
+    final game = _games.firstWhere((g) => g.id == gameId, orElse: () => GameModel(id: '', title: '', description: ''));
     return game.likeCount;
   }
 
