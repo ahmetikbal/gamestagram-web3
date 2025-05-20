@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'dart:ui';
 import 'dart:math' as math;
+import '../screens/game_details_screen.dart';
 
 class GameFrameWidget extends StatefulWidget {
   final GameModel game;
@@ -258,69 +259,20 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
                       ),
                     ),
                     const SizedBox(height: 24),
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(50),
-                        onTap: _toggleGameVisibility,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                theme.colorScheme.primary,
-                                theme.colorScheme.secondary,
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(50),
-                            boxShadow: [
-                              BoxShadow(
-                                color: theme.colorScheme.primary.withOpacity(0.5),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.2),
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  Icons.play_arrow_rounded,
-                                  color: Colors.white,
-                                  size: 28,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                'PLAY NOW',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                  letterSpacing: 1.0,
-                                  shadows: [
-                                    Shadow(
-                                      offset: const Offset(1, 1),
-                                      blurRadius: 3,
-                                      color: Colors.black.withOpacity(0.5),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
+                    ElevatedButton.icon(
+                      onPressed: _toggleGameVisibility,
+                      icon: Icon(Icons.play_circle_outline, color: theme.colorScheme.onPrimary),
+                      label: Text(
+                        'Play Game',
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: theme.colorScheme.onPrimary,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: theme.colorScheme.primary,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
                       ),
                     ),
@@ -455,7 +407,7 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
                     ),
                   ),
                 
-                // Enhanced close/pause game button (only when game is visible)
+                                    // Enhanced close/pause game button (only when game is visible)
                 if (_isGameVisible)
                   Material(
                     color: Colors.transparent,
@@ -483,6 +435,50 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
                           ),
                           child: const Icon(
                             Icons.close_rounded,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                
+                // Game details button (when game is not visible)
+                if (!_isGameVisible)
+                  Material(
+                    color: Colors.transparent,
+                    child: Container(
+                      margin: const EdgeInsets.all(4),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        onTap: () {
+                          // Navigate to game details screen
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => GameDetailsScreen(game: widget.game),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary.withOpacity(0.7),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.3),
+                              width: 1,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.info_outline,
                             color: Colors.white,
                             size: 24,
                           ),

@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../../application/view_models/auth_view_model.dart';
 import '../../application/view_models/game_view_model.dart';
 import '../../data/models/game_model.dart';
-import '../screens/game_webview_screen.dart';
+import '../screens/game_details_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -133,22 +133,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildSavedGameCard(BuildContext context, GameModel game) {
     return GestureDetector(
       onTap: () {
-        if (game.gameUrl != null && game.gameUrl!.isNotEmpty) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => GameWebViewScreen(
-                gameUrl: game.gameUrl!,
-                gameTitle: game.title,
-                gameId: game.id,
-              ),
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('This game is not playable')),
-          );
-        }
+        // Navigate to game details instead of directly to WebView
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => GameDetailsScreen(game: game),
+          ),
+        );
       },
       child: Card(
         elevation: 4,

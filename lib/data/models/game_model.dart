@@ -6,6 +6,7 @@ class GameModel {
   final String description;
   final String? imageUrl;
   final String? gameUrl;
+  final String? genre;
   int likeCount;
   int commentCount;
   bool isLikedByCurrentUser;
@@ -17,6 +18,7 @@ class GameModel {
     required this.description,
     this.imageUrl,
     this.gameUrl,
+    this.genre,
     this.likeCount = 0,
     this.commentCount = 0,
     this.isLikedByCurrentUser = false,
@@ -31,6 +33,7 @@ class GameModel {
       description: json['description'] as String,
       imageUrl: json['imageUrl'] as String?,
       gameUrl: json['gameUrl'] as String?,
+      genre: json['genre'] as String?,
       likeCount: json['likeCount'] as int? ?? 0,
       commentCount: json['commentCount'] as int? ?? 0,
       isLikedByCurrentUser: json['isLikedByCurrentUser'] as bool? ?? false,
@@ -46,6 +49,7 @@ class GameModel {
       'description': description,
       'imageUrl': imageUrl,
       'gameUrl': gameUrl,
+      'genre': genre,
       'likeCount': likeCount,
       'commentCount': commentCount,
       'isLikedByCurrentUser': isLikedByCurrentUser,

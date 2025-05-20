@@ -33,6 +33,13 @@ class GameViewModel extends ChangeNotifier {
   // Track the currently playing game, if any
   String? _currentlyPlayingGameId;
   String? get currentlyPlayingGameId => _currentlyPlayingGameId;
+  
+  // Enhanced performance settings
+  final int _initialLoadCount = 5;
+  final int _additionalLoadCount = 5;
+  final int _loadThreshold = 2; // Load more when 2 games remain
+  final Map<String, GameModel> _gameCache = {};
+  bool _hasMoreGames = true;
 
   GameViewModel() {
     // fetchInitialGames();
@@ -64,17 +71,27 @@ class GameViewModel extends ChangeNotifier {
     _errorMessage = null;
   }
 
-  Future<void> fetchInitialGames({int count = 5}) async {
+  Future<void> fetchInitialGames({int? count}) async {
     if (_isLoading && _games.isEmpty) return;
     _setLoading(true);
     _clearError();
     try {
-      final fetchedGames = await _gameService.fetchGames(count: count);
+      final fetchedGames = await _gameService.fetchGames(count: count ?? _initialLoadCount);
       _games = fetchedGames;
       for (var game in _games) {
         game.likeCount = _socialService.getLikeCount(game.id);
-        // TODO: Initialize game.commentCount from SocialService if it provides a count method
+        
+        // Cache the game for better performance
+        _gameCache[game.id] = game;
+        
+        // Initialize comment counts
+        final comments = await _socialService.getComments(game.id);
+        game.commentCount = comments.length;
       }
+      
+      // If we received fewer games than requested, we've likely reached the end
+      _hasMoreGames = fetchedGames.length >= (count ?? _initialLoadCount);
+      
       print('[GameViewModel] Initial games loaded: ${_games.length}');
     } catch (e) {
       _errorMessage = e.toString();
@@ -84,16 +101,29 @@ class GameViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> fetchMoreGames({int count = 3}) async {
-    if (_isLoading) return;
+  Future<void> fetchMoreGames({int? count}) async {
+    if (_isLoading || !_hasMoreGames) return;
     _setLoading(true);
     try {
-      final moreGames = await _gameService.fetchGames(count: count);
+      final moreGames = await _gameService.fetchGames(count: count ?? _additionalLoadCount);
+      
+      // Process and cache each game
       for (var game in moreGames) {
         game.likeCount = _socialService.getLikeCount(game.id);
-        // TODO: Initialize game.commentCount
+        
+        // Cache the game for better performance
+        _gameCache[game.id] = game;
+        
+        // Initialize comment counts
+        final comments = await _socialService.getComments(game.id);
+        game.commentCount = comments.length;
       }
+      
       _games.addAll(moreGames);
+      
+      // Update whether we have more games to load
+      _hasMoreGames = moreGames.length >= (count ?? _additionalLoadCount);
+      
       print('[GameViewModel] More games loaded. Total: ${_games.length}');
     } catch (e) {
       _errorMessage = e.toString();
@@ -101,6 +131,13 @@ class GameViewModel extends ChangeNotifier {
     } finally {
       _setLoading(false);
     }
+  }
+  
+  // Determine if we should load more games based on position
+  bool shouldLoadMoreGames(int currentIndex) {
+    return _hasMoreGames && 
+           !_isLoading &&
+           (_games.length - currentIndex - 1) <= _loadThreshold;
   }
 
   Future<void> toggleLikeGame(String gameId, String userId) async {

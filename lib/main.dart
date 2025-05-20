@@ -8,6 +8,7 @@ import 'application/view_models/game_view_model.dart';
 import 'presentation/screens/welcome_screen.dart';
 import 'presentation/screens/home_screen.dart';
 import 'presentation/screens/game_webview_screen.dart';
+import 'presentation/screens/game_details_screen.dart';
 import 'services/game_service.dart';
 
 void main() {
@@ -248,23 +249,13 @@ class _DeepLinkHandlerState extends State<DeepLinkHandler> {
             orElse: () => throw Exception('Game not found'),
           );
           
-          // If found and has URL, navigate to it
-          if (game.gameUrl != null && game.gameUrl!.isNotEmpty) {
-            Navigator.push(
-              context, 
-              MaterialPageRoute(
-                builder: (context) => GameWebViewScreen(
-                  gameId: game.id,
-                  gameUrl: game.gameUrl!,
-                  gameTitle: game.title,
-                ),
-              ),
-            );
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Game found but is not playable')),
-            );
-          }
+          // Navigate to the Game Details screen instead of WebView directly
+          Navigator.push(
+            context, 
+            MaterialPageRoute(
+              builder: (context) => GameDetailsScreen(game: game),
+            ),
+          );
         } catch (e) {
           print('Error handling deep link: $e');
           ScaffoldMessenger.of(context).showSnackBar(
