@@ -159,6 +159,14 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
 
     // Get global full view state
     final bool isGlobalFullView = gameViewModel.isGlobalFullViewEnabled;
+    
+    // Get safe area padding for just the status bar
+    final safeAreaTop = MediaQuery.of(context).padding.top;
+    // Use a smaller offset since we no longer have an app bar
+    final topOffset = safeAreaTop + 15;
+    
+    // Get screen width to handle overflow
+    final screenWidth = MediaQuery.of(context).size.width;
 
     // Check if game is saved
     final bool isSaved = currentUser != null ? 
@@ -281,80 +289,9 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
               ),
             ),
           
-          // Modern "Playable" badge with animation
-          Positioned(
-            top: 10,
-            right: 10,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    theme.colorScheme.primary.withOpacity(0.85),
-                    theme.colorScheme.secondary.withOpacity(0.85),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
-                    spreadRadius: 1,
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.3),
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Animated game controller icon
-                  TweenAnimationBuilder(
-                    tween: Tween<double>(begin: 0, end: 1),
-                    duration: const Duration(seconds: 2),
-                    curve: Curves.easeInOut,
-                    builder: (context, double value, child) {
-                      return Transform.rotate(
-                        angle: 0.1 * value * math.sin(value * 5),
-                        child: child,
-                      );
-                    },
-                    child: Icon(
-                      Icons.sports_esports_rounded,
-                      color: Colors.white,
-                      size: 18,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'PLAYABLE',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
-                      letterSpacing: 0.5,
-                      shadows: [
-                        Shadow(
-                          offset: const Offset(1, 1),
-                          blurRadius: 3,
-                          color: Colors.black.withOpacity(0.5),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          
           // Control buttons at top
           Positioned(
-            top: 10,
+            top: topOffset,
             left: 10,
             child: Row(
               children: [

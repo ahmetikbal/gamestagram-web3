@@ -20,7 +20,6 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> with SingleTicker
   late AnimationController _animationController;
   late Animation<double> _headerAnimation;
   late Animation<double> _contentAnimation;
-  bool _isExpanded = false;
 
   @override
   void initState() {
@@ -260,16 +259,19 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> with SingleTicker
                             const SizedBox(height: 16),
                             
                             // Ratings and metrics
-                            Row(
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
                               children: [
                                 // Like count with heart icon
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                   decoration: BoxDecoration(
                                     color: Colors.white.withOpacity(0.15),
                                     borderRadius: BorderRadius.circular(16),
                                   ),
                                   child: Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Icon(
                                         Icons.favorite,
@@ -288,16 +290,15 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> with SingleTicker
                                   ),
                                 ),
                                 
-                                const SizedBox(width: 12),
-                                
                                 // Comment count with chat icon
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                   decoration: BoxDecoration(
                                     color: Colors.white.withOpacity(0.15),
                                     borderRadius: BorderRadius.circular(16),
                                   ),
                                   child: Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Icon(
                                         Icons.chat_bubble_outline,
@@ -316,11 +317,9 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> with SingleTicker
                                   ),
                                 ),
                                 
-                                const SizedBox(width: 12),
-                                
                                 // Playable badge
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                   decoration: BoxDecoration(
                                     gradient: LinearGradient(
                                       colors: [
@@ -333,19 +332,20 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> with SingleTicker
                                     borderRadius: BorderRadius.circular(16),
                                   ),
                                   child: Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Icon(
                                         Icons.sports_esports,
                                         color: Colors.white,
-                                        size: 18,
+                                        size: 16,
                                       ),
-                                      const SizedBox(width: 6),
+                                      const SizedBox(width: 4),
                                       Text(
                                         'PLAYABLE',
                                         style: TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold,
-                                          fontSize: 12,
+                                          fontSize: 10,
                                           letterSpacing: 0.5,
                                         ),
                                       ),
@@ -356,26 +356,26 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> with SingleTicker
                                 // Genre badge (if available)
                                 if (widget.game.genre != null)
                                   Container(
-                                    margin: const EdgeInsets.only(left: 12),
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                     decoration: BoxDecoration(
                                       color: Colors.white.withOpacity(0.15),
                                       borderRadius: BorderRadius.circular(16),
                                     ),
                                     child: Row(
+                                      mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Icon(
                                           _getGenreIcon(widget.game.genre!),
                                           color: Colors.amber.shade300,
-                                          size: 18,
+                                          size: 16,
                                         ),
-                                        const SizedBox(width: 6),
+                                        const SizedBox(width: 4),
                                         Text(
                                           widget.game.genre!,
                                           style: const TextStyle(
                                             color: Colors.white,
                                             fontWeight: FontWeight.bold,
-                                            fontSize: 12,
+                                            fontSize: 10,
                                           ),
                                         ),
                                       ],
@@ -401,6 +401,9 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> with SingleTicker
                       ).animate(_contentAnimation),
                       child: Container(
                         width: double.infinity,
+                        constraints: BoxConstraints(
+                          minHeight: MediaQuery.of(context).size.height * 0.6,
+                        ),
                         padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
                           color: theme.colorScheme.surface.withOpacity(0.9),
@@ -423,47 +426,15 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> with SingleTicker
                             
                             const SizedBox(height: 16),
                             
-                            // Game description with animation to expand/collapse
-                            GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  _isExpanded = !_isExpanded;
-                                });
-                              },
-                              child: AnimatedSize(
-                                duration: const Duration(milliseconds: 300),
-                                curve: Curves.easeOut,
-                                child: Container(
-                                  child: Text(
-                                    widget.game.description,
-                                    style: theme.textTheme.bodyLarge?.copyWith(
-                                      color: theme.colorScheme.onSurface.withOpacity(0.8),
-                                    ),
-                                    maxLines: _isExpanded ? null : 3,
-                                    overflow: _isExpanded ? null : TextOverflow.ellipsis,
-                                  ),
+                            // Game description without expand/collapse
+                            Container(
+                              child: Text(
+                                widget.game.description,
+                                style: theme.textTheme.bodyLarge?.copyWith(
+                                  color: theme.colorScheme.onSurface.withOpacity(0.8),
                                 ),
                               ),
                             ),
-                            
-                            if (!_isExpanded)
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: TextButton(
-                                  onPressed: () {
-                                    setState(() {
-                                      _isExpanded = true;
-                                    });
-                                  },
-                                  child: Text(
-                                    'Read More',
-                                    style: TextStyle(
-                                      color: theme.colorScheme.primary,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ),
                             
                             const SizedBox(height: 24),
                             
@@ -622,43 +593,44 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> with SingleTicker
                               ],
                             ),
                             
-                            const SizedBox(height: 40),
+                            const SizedBox(height: 24),
                             
                             // Play button
                             SizedBox(
                               width: double.infinity,
-                              child: ElevatedButton(
-                                onPressed: widget.game.gameUrl != null && widget.game.gameUrl!.isNotEmpty 
-                                    ? _playGame 
-                                    : null,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: theme.colorScheme.primary,
-                                  foregroundColor: theme.colorScheme.onPrimary,
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  elevation: 4,
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(Icons.play_arrow, size: 28),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'PLAY NOW',
-                                      style: theme.textTheme.titleMedium?.copyWith(
-                                        color: theme.colorScheme.onPrimary,
-                                        fontWeight: FontWeight.bold,
-                                        letterSpacing: 1,
-                                      ),
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 16, bottom: 40),
+                                child: ElevatedButton(
+                                  onPressed: widget.game.gameUrl != null && widget.game.gameUrl!.isNotEmpty 
+                                      ? _playGame 
+                                      : null,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: theme.colorScheme.primary,
+                                    foregroundColor: theme.colorScheme.onPrimary,
+                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
                                     ),
-                                  ],
+                                    elevation: 4,
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(Icons.play_arrow, size: 28),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'PLAY NOW',
+                                        style: theme.textTheme.titleMedium?.copyWith(
+                                          color: theme.colorScheme.onPrimary,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 1,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
-                            
-                            const SizedBox(height: 40),
                           ],
                         ),
                       ),
