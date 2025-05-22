@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "679818120383",
+    "project_id": "gamestagram-1b697",
+    "storage_bucket": "gamestagram-1b697.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:679818120383:android:cc3da9b71932a581eb0a0a",
+        "android_client_info": {
+          "package_name": "com.example.gamestagram"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDWD1tVhQ4_5oiEiatYlJwwROvhj7rhdyQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -10,9 +10,12 @@ import 'presentation/screens/home_screen.dart';
 import 'presentation/screens/game_webview_screen.dart';
 import 'presentation/screens/game_details_screen.dart';
 import 'services/game_service.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const MyApp());
 }
 
@@ -53,12 +56,15 @@ class _MyAppState extends State<MyApp> {
     }
 
     // Handle links when app is already running
-    _appLinks.uriLinkStream.listen((uri) {
-      print('URI received: $uri');
-      _handleDeepLink(uri);
-    }, onError: (error) {
-      print('Error handling URI: $error');
-    });
+    _appLinks.uriLinkStream.listen(
+      (uri) {
+        print('URI received: $uri');
+        _handleDeepLink(uri);
+      },
+      onError: (error) {
+        print('Error handling URI: $error');
+      },
+    );
   }
 
   // Handle the deep link
@@ -84,25 +90,32 @@ class _MyAppState extends State<MyApp> {
     final darkTheme = ThemeData(
       brightness: Brightness.dark,
       primaryColor: Colors.grey[900], // A deep charcoal
-      scaffoldBackgroundColor: const Color(0xFF121212), // Standard dark theme background
+      scaffoldBackgroundColor: const Color(
+        0xFF121212,
+      ), // Standard dark theme background
       colorScheme: ColorScheme.dark(
         primary: Colors.tealAccent[400]!, // Vibrant accent for primary actions
-        secondary: Colors.pinkAccent[200]!, // Another vibrant accent (optional use)
-        surface: Colors.grey[850]!, // For surfaces like cards, dialogs (slightly lighter than scaffold)
+        secondary:
+            Colors.pinkAccent[200]!, // Another vibrant accent (optional use)
+        surface:
+            Colors
+                .grey[850]!, // For surfaces like cards, dialogs (slightly lighter than scaffold)
         background: const Color(0xFF121212),
         error: Colors.redAccent[400]!,
         onPrimary: Colors.black, // Text/icon color on primary accent
         onSecondary: Colors.black, // Text/icon color on secondary accent
-        onSurface: Colors.white,   // Text/icon color on surfaces
+        onSurface: Colors.white, // Text/icon color on surfaces
         onBackground: Colors.white, // Text/icon color on background
-        onError: Colors.black,     // Text/icon color on error
+        onError: Colors.black, // Text/icon color on error
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: Colors.grey[900]?.withOpacity(0.85), // Slightly transparent AppBar
+        backgroundColor: Colors.grey[900]?.withOpacity(
+          0.85,
+        ), // Slightly transparent AppBar
         elevation: 0,
         iconTheme: IconThemeData(color: Colors.tealAccent[400]),
         titleTextStyle: GoogleFonts.poppins(
-          color: Colors.white, 
+          color: Colors.white,
           fontSize: 20,
           fontWeight: FontWeight.w600, // Adjusted weight for Poppins
         ),
@@ -110,15 +123,22 @@ class _MyAppState extends State<MyApp> {
       buttonTheme: ButtonThemeData(
         buttonColor: Colors.tealAccent[400], // Default button color
         textTheme: ButtonTextTheme.primary,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18.0)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18.0),
+        ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.tealAccent[400],
           foregroundColor: Colors.black,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          textStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18.0)),
+          textStyle: GoogleFonts.poppins(
+            fontWeight: FontWeight.w600,
+            fontSize: 16,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18.0),
+          ),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
@@ -130,7 +150,10 @@ class _MyAppState extends State<MyApp> {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: Colors.grey[850],
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12.0),
           borderSide: BorderSide.none,
@@ -141,18 +164,31 @@ class _MyAppState extends State<MyApp> {
         ),
         hintStyle: GoogleFonts.poppins(color: Colors.grey[500]),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         elevation: 4,
         color: Colors.grey[850], // Matches surface color
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16.0),
+        ),
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       ),
       textTheme: GoogleFonts.poppinsTextTheme(baseDarkTheme.textTheme).copyWith(
         bodyLarge: GoogleFonts.poppins(color: Colors.white, fontSize: 16),
         bodyMedium: GoogleFonts.poppins(color: Colors.white70, fontSize: 14),
-        titleLarge: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 22),
-        titleMedium: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w500, fontSize: 18),
-        labelLarge: GoogleFonts.poppins(color: Colors.tealAccent[400], fontWeight: FontWeight.w600), // For button text if not overridden by button themes
+        titleLarge: GoogleFonts.poppins(
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+          fontSize: 22,
+        ),
+        titleMedium: GoogleFonts.poppins(
+          color: Colors.white,
+          fontWeight: FontWeight.w500,
+          fontSize: 18,
+        ),
+        labelLarge: GoogleFonts.poppins(
+          color: Colors.tealAccent[400],
+          fontWeight: FontWeight.w600,
+        ), // For button text if not overridden by button themes
       ),
       visualDensity: VisualDensity.adaptivePlatformDensity,
     );
@@ -164,7 +200,9 @@ class _MyAppState extends State<MyApp> {
       ],
       child: Consumer<AuthViewModel>(
         builder: (context, authViewModel, child) {
-          print('[MainApp Consumer] Rebuilding. CurrentUser: ${authViewModel.currentUser?.username}, isLoading: ${authViewModel.isLoading}');
+          print(
+            '[MainApp Consumer] Rebuilding. CurrentUser: ${authViewModel.currentUser?.username}, isLoading: ${authViewModel.isLoading}',
+          );
           return MaterialApp(
             key: ValueKey(authViewModel.currentUser?.id ?? 'loggedOut'),
             title: 'Gamestagram',
@@ -180,9 +218,10 @@ class _MyAppState extends State<MyApp> {
                   });
                 });
               },
-              child: authViewModel.currentUser != null 
-                  ? const HomeScreen() 
-                  : const WelcomeScreen(),
+              child:
+                  authViewModel.currentUser != null
+                      ? const HomeScreen()
+                      : const WelcomeScreen(),
             ),
           );
         },
@@ -213,7 +252,7 @@ class _DeepLinkHandlerState extends State<DeepLinkHandler> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    
+
     // Handle initial URI if it exists - use post-frame callback to avoid setState during build
     if (widget.initialLink != null && !widget.initialLinkHandled) {
       // Use addPostFrameCallback to handle this after the build phase completes
@@ -229,11 +268,11 @@ class _DeepLinkHandlerState extends State<DeepLinkHandler> {
     if (uri.pathSegments.length >= 2 && uri.pathSegments[0] == 'game') {
       final gameId = uri.pathSegments[1];
       print('DeepLinkHandler: Opening game with ID: $gameId');
-      
+
       // Get the GameService to find the game
       final gameViewModel = Provider.of<GameViewModel>(context, listen: false);
       final gameService = GameService();
-      
+
       // We need to get the game details from the service
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         try {
@@ -242,25 +281,25 @@ class _DeepLinkHandlerState extends State<DeepLinkHandler> {
           if (gameViewModel.games.isEmpty) {
             await gameViewModel.fetchInitialGames();
           }
-          
+
           // Find the game
           final game = gameViewModel.games.firstWhere(
             (g) => g.id == gameId,
             orElse: () => throw Exception('Game not found'),
           );
-          
+
           // Navigate to the Game Details screen instead of WebView directly
           Navigator.push(
-            context, 
+            context,
             MaterialPageRoute(
               builder: (context) => GameDetailsScreen(game: game),
             ),
           );
         } catch (e) {
           print('Error handling deep link: $e');
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Could not open game: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Could not open game: $e')));
         }
       });
     }
