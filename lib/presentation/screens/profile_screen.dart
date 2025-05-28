@@ -60,6 +60,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               print('Edit Profile tapped');
             },
           ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Logout',
+            onPressed: () async {
+              await authViewModel.logout();
+            },
+          ),
         ],
       ),
       body: SingleChildScrollView(
