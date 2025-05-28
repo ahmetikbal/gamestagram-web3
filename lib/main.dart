@@ -1,21 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart'; // Import Google Fonts
-import 'package:app_links/app_links.dart'; // For deep linking
+import 'package:google_fonts/google_fonts.dart';
+import 'package:app_links/app_links.dart';
 import 'dart:async';
+<<<<<<< HEAD
+=======
+import 'dart:io';
+>>>>>>> 7320d77 (Games updated, SSL Certificate issues solved globally)
 import 'application/view_models/auth_view_model.dart';
 import 'application/view_models/game_view_model.dart';
 import 'presentation/screens/welcome_screen.dart';
 import 'presentation/screens/home_screen.dart';
 import 'presentation/screens/game_webview_screen.dart';
 import 'presentation/screens/game_details_screen.dart';
+<<<<<<< HEAD
 import 'services/game_service.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
+=======
+import 'utils/network_config.dart';
+>>>>>>> 7320d77 (Games updated, SSL Certificate issues solved globally)
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+<<<<<<< HEAD
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const MyApp());
 }
@@ -33,6 +42,22 @@ Future<void> main() async {
   runApp(const MyApp());
 }
 */
+=======
+  
+  // Configure global HTTP client for better SSL handling
+  HttpOverrides.global = _CustomHttpOverrides();
+  
+  runApp(const MyApp());
+}
+
+/// Custom HTTP overrides to handle SSL certificate issues
+class _CustomHttpOverrides extends HttpOverrides {
+  @override
+  HttpClient createHttpClient(SecurityContext? context) {
+    return NetworkConfig.createHttpClient();
+  }
+}
+>>>>>>> 7320d77 (Games updated, SSL Certificate issues solved globally)
 
 class MyApp extends StatefulWidget {
   const MyApp({Key? key}) : super(key: key);

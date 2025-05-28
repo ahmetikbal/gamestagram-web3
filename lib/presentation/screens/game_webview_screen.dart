@@ -163,17 +163,55 @@ Page resource error:
 
             // Only update UI for main frame errors
             if (mounted && error.isForMainFrame == true) {
-              // Special handling for SSL/connection errors
-              final errorMessage = (error.description.contains('SSL') ||
-                      error.description.contains('ERR_CONNECTION_RESET') ||
-                      error.description.contains('ERR_CONNECTION_REFUSED'))
-                  ? "Connection error: Unable to connect securely to the game server. This may be due to network restrictions or site policies."
-                  : "Failed to load game (Code: ${error.errorCode}). Please check your connection or try again later.";
+              // Enhanced SSL/connection error handling
+              String errorMessage;
+              bool shouldShowFallback = false;
+              
+              if (error.description.contains('SSL') || 
+                  error.description.contains('ERR_SSL_') ||
+                  error.description.contains('ERR_CERT_') ||
+                  error.description.contains('ERR_CONNECTION_RESET') ||
+                  error.description.contains('ERR_CONNECTION_REFUSED') ||
+                  error.description.contains('ERR_CONNECTION_TIMED_OUT') ||
+                  error.description.contains('ERR_NAME_NOT_RESOLVED') ||
+                  error.description.contains('ERR_INTERNET_DISCONNECTED') ||
+                  error.description.contains('net::ERR_CONNECTION_RESET') ||
+                  error.errorCode == -101 || // ERR_CONNECTION_RESET
+                  error.errorCode == -102 || // ERR_CONNECTION_REFUSED  
+                  error.errorCode == -7 ||   // ERR_TIMED_OUT
+                  error.errorCode == -105 ||  // ERR_NAME_NOT_RESOLVED
+                  error.errorCode == -106) {  // ERR_INTERNET_DISCONNECTED
+                
+                errorMessage = "Connection error: Unable to connect to the game server. This may be due to:\n\n" +
+                    "• SSL/Security certificate issues\n" +
+                    "• Network connectivity problems\n" +
+                    "• Server temporarily unavailable\n" +
+                    "• Firewall or proxy restrictions\n\n" +
+                    "Try the offline game below or check your connection.";
+                shouldShowFallback = true;
+              } else if (error.description.contains('ERR_BLOCKED_BY_CLIENT') ||
+                         error.description.contains('ERR_BLOCKED_BY_ADMINISTRATOR')) {
+                errorMessage = "Access blocked: This game may be restricted by your network administrator or security settings.";
+                shouldShowFallback = true;
+              } else {
+                errorMessage = "Failed to load game (Error ${error.errorCode}): ${error.description}\n\nPlease check your connection or try again later.";
+                shouldShowFallback = true;
+              }
 
               setState(() {
                 _isLoadingPage = false;
                 _loadingError = errorMessage;
               });
+              
+              // Auto-load fallback game after 3 seconds for connection errors
+              if (shouldShowFallback && !_triedFallback) {
+                Future.delayed(const Duration(seconds: 3), () {
+                  if (mounted && _loadingError != null) {
+                    print("Auto-loading fallback game due to connection error");
+                    _loadFallbackGame();
+                  }
+                });
+              }
             }
           },
           onNavigationRequest: (NavigationRequest request) {

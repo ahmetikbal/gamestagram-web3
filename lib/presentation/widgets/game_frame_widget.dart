@@ -3,10 +3,13 @@ import 'package:provider/provider.dart';
 import '../../data/models/game_model.dart';
 import '../../application/view_models/game_view_model.dart';
 import '../../application/view_models/auth_view_model.dart';
-import 'comment_panel_widget.dart';
+import '../widgets/comment_panel_widget.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../screens/game_details_screen.dart';
+import 'dart:io';
+import '../screens/game_webview_screen.dart';
+import '../../utils/network_config.dart';
 
 /// A comprehensive game display widget that handles game presentation, interaction, and playback
 /// 
@@ -162,6 +165,124 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
     }
   }
 
+  /// Creates a robust image widget that handles SSL and network errors gracefully
+  Widget _buildRobustImage(String imageUrl, ThemeData theme, bool isGlobalFullView) {
+    return Image.network(
+      imageUrl,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      cacheWidth: 800, // Limit cache size to prevent memory issues
+      cacheHeight: 600,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) {
+          return ColorFiltered(
+            colorFilter: isGlobalFullView 
+                ? const ColorFilter.mode(Colors.transparent, BlendMode.multiply)
+                : ColorFilter.mode(Colors.black.withOpacity(0.6), BlendMode.darken),
+            child: child,
+          );
+        }
+        return Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                theme.colorScheme.primary.withOpacity(0.7),
+                theme.colorScheme.secondary.withOpacity(0.7),
+              ],
+            ),
+          ),
+          child: Center(
+            child: CircularProgressIndicator(
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                  : null,
+              color: Colors.white.withOpacity(0.7),
+              strokeWidth: 2,
+            ),
+          ),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) {
+        // Handle SSL and other network errors gracefully
+        print('Image loading error for $imageUrl: $error');
+        
+        // Prevent infinite recursion by using a simple fallback
+        if (error.toString().contains('Stack Overflow')) {
+          print('Stack overflow detected for image: $imageUrl - using simple fallback');
+        }
+        
+        // Use NetworkConfig utility for better error detection and messaging
+        String errorType = NetworkConfig.isNetworkError(error) 
+            ? NetworkConfig.getNetworkErrorMessage(error)
+            : 'Image unavailable';
+        
+        // Special handling for stack overflow
+        if (error.toString().contains('Stack Overflow')) {
+          errorType = 'Image loading failed';
+        }
+        
+        // Select appropriate icon based on error type
+        IconData errorIcon = Icons.videogame_asset;
+        if (errorType.contains('SSL') || errorType.contains('certificate')) {
+          errorIcon = Icons.security;
+        } else if (errorType.contains('Connection') || errorType.contains('Network')) {
+          errorIcon = Icons.wifi_off;
+        } else if (errorType.contains('timeout')) {
+          errorIcon = Icons.timer_off;
+        }
+        
+        return Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                theme.colorScheme.primary.withOpacity(0.7),
+                theme.colorScheme.secondary.withOpacity(0.7),
+              ],
+            ),
+          ),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  errorIcon,
+                  size: 80,
+                  color: theme.colorScheme.onPrimary.withOpacity(0.3),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  errorType,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.5),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                if (errorType.contains('SSL'))
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      'Game still playable',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.3),
+                        fontSize: 10,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
@@ -193,15 +314,6 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
     Widget backgroundLayer() {
       return Container(
         decoration: BoxDecoration(
-          image: widget.game.imageUrl != null && widget.game.imageUrl!.isNotEmpty
-              ? DecorationImage(
-                  image: NetworkImage(widget.game.imageUrl!),
-                  fit: BoxFit.cover,
-                  colorFilter: isGlobalFullView 
-                      ? null 
-                      : ColorFilter.mode(Colors.black.withOpacity(0.6), BlendMode.darken),
-                )
-              : null,
           gradient: widget.game.imageUrl == null || widget.game.imageUrl!.isEmpty
               ? LinearGradient(
                   begin: Alignment.topLeft,
@@ -213,15 +325,20 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
                 )
               : null,
         ),
-        child: widget.game.imageUrl == null || widget.game.imageUrl!.isEmpty
-            ? Center(
+        child: widget.game.imageUrl != null && widget.game.imageUrl!.isNotEmpty
+            ? Stack(
+                children: [
+                  // Game image with SSL error handling
+                  _buildRobustImage(widget.game.imageUrl!, theme, isGlobalFullView),
+                ],
+              )
+            : Center(
                 child: Icon(
                   Icons.videogame_asset,
                   size: 80,
                   color: theme.colorScheme.onPrimary.withOpacity(0.3),
                 ),
-              )
-            : null,
+              ),
       );
     }
     

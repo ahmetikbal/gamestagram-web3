@@ -6,6 +6,9 @@ import '../../data/models/game_model.dart';
 import '../../application/view_models/game_view_model.dart';
 import '../../application/view_models/auth_view_model.dart';
 import 'game_webview_screen.dart';
+import '../widgets/comment_panel_widget.dart';
+import '../screens/game_webview_screen.dart';
+import '../../utils/network_config.dart';
 
 class GameDetailsScreen extends StatefulWidget {
   final GameModel game;
@@ -161,6 +164,7 @@ class _GameDetailsScreenState extends State<GameDetailsScreen>
         children: [
           // Background image with gradient overlay
           SizedBox.expand(
+<<<<<<< HEAD
             child:
                 widget.game.imageUrl != null && widget.game.imageUrl!.isNotEmpty
                     ? Stack(
@@ -191,6 +195,98 @@ class _GameDetailsScreenState extends State<GameDetailsScreen>
                                   size: 80,
                                   color: Colors.white.withOpacity(0.3),
                                 ),
+=======
+            child: widget.game.imageUrl != null && widget.game.imageUrl!.isNotEmpty
+                ? Stack(
+                    children: [
+                      // Game image
+                      Image.network(
+                        widget.game.imageUrl!,
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: double.infinity,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  theme.colorScheme.primary.withOpacity(0.7),
+                                  theme.colorScheme.secondary.withOpacity(0.7),
+                                ],
+                              ),
+                            ),
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                value: loadingProgress.expectedTotalBytes != null
+                                    ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                    : null,
+                                color: Colors.white.withOpacity(0.7),
+                              ),
+                            ),
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) {
+                          // Enhanced error handling for SSL and network issues
+                          print('Game details image loading error: $error');
+                          
+                          // Use NetworkConfig utility for better error detection and messaging
+                          String errorMessage = NetworkConfig.isNetworkError(error) 
+                              ? NetworkConfig.getNetworkErrorMessage(error)
+                              : 'Image unavailable';
+                          
+                          // Select appropriate icon based on error type
+                          IconData errorIcon = Icons.videogame_asset;
+                          if (errorMessage.contains('SSL') || errorMessage.contains('certificate')) {
+                            errorIcon = Icons.security;
+                          } else if (errorMessage.contains('Connection') || errorMessage.contains('Network')) {
+                            errorIcon = Icons.wifi_off;
+                          } else if (errorMessage.contains('timeout')) {
+                            errorIcon = Icons.timer_off;
+                          }
+                          
+                          return Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  theme.colorScheme.primary.withOpacity(0.7),
+                                  theme.colorScheme.secondary.withOpacity(0.7),
+                                ],
+                              ),
+                            ),
+                            child: Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    errorIcon,
+                                    size: 80,
+                                    color: Colors.white.withOpacity(0.3),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    errorMessage,
+                                    style: TextStyle(
+                                      color: Colors.white.withOpacity(0.6),
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Game is still playable',
+                                    style: TextStyle(
+                                      color: Colors.white.withOpacity(0.4),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+>>>>>>> 7320d77 (Games updated, SSL Certificate issues solved globally)
                               ),
                             );
                           },

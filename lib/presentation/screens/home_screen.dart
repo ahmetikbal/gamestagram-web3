@@ -1,10 +1,9 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../application/view_models/auth_view_model.dart';
-import '../../application/view_models/game_view_model.dart';
-import '../../data/models/game_model.dart';
 import '../widgets/game_frame_widget.dart';
+import '../../application/view_models/game_view_model.dart';
+import '../../application/view_models/auth_view_model.dart';
 import 'profile_screen.dart';
 
 
@@ -146,7 +145,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   }
 
                   if (index >= gvm.games.length - 2 && !gvm.isLoading) {
-                    Provider.of<GameViewModel>(context, listen: false).fetchMoreGames();
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) {
+                        Provider.of<GameViewModel>(context, listen: false).fetchMoreGames();
+                      }
+                    });
                   }
                   return GameFrameWidget(game: gvm.games[index]);
                 },

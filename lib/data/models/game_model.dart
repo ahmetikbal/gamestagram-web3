@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 /// Represents a game with its metadata and user interaction state
 class GameModel {
   final String id;
