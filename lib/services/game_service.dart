@@ -2,12 +2,14 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/services.dart';
 import '../data/models/game_model.dart';
+import '../utils/image_validator.dart';
 
 /// Service for managing game data and operations
-/// Loads games from JSON asset file and provides game-related functionality
+/// Loads games from JSON asset file and provides game-related functionality with image validation
 class GameService {
   static List<GameModel>? _cachedGames;
   static bool _isLoading = false;
+  static final Set<String> _usedGameIds = <String>{}; // Track used games to avoid duplicates
 
   /// Loads all games from the JSON asset file
   /// Uses caching to avoid repeated file reads
@@ -45,8 +47,8 @@ class GameService {
     }
   }
 
-  /// Fetches a specified number of games with optional shuffling
-  /// Simulates pagination by returning random subsets
+  /// Fetches games with optimized image validation and progressive loading
+  /// Uses batch validation and caching to minimize lag
   Future<List<GameModel>> fetchGames({int count = 10}) async {
     try {
       final allGames = await _loadGamesFromAsset();
@@ -56,17 +58,126 @@ class GameService {
         return [];
       }
 
-      // Shuffle the games to provide variety
-      final shuffledGames = List<GameModel>.from(allGames);
-      shuffledGames.shuffle(Random());
+      // Get games that haven't been used yet
+      final availableGames = allGames.where((game) => !_usedGameIds.contains(game.id)).toList();
       
-      // Return the requested number of games
-      final gamesToReturn = shuffledGames.take(count).toList();
+      // If we're running low on unused games, reset the used set (for infinite scroll)
+      if (availableGames.length < count * 2) {
+        print('[GameService] Resetting used games list to provide more variety');
+        _usedGameIds.clear();
+        availableGames.clear();
+        availableGames.addAll(allGames);
+      }
+
+      // Shuffle available games
+      availableGames.shuffle(Random());
       
-      print('[GameService] Returning ${gamesToReturn.length} games out of ${allGames.length} total');
-      return gamesToReturn;
+      // Filter games with images and prepare for batch validation
+      final gamesWithImages = availableGames
+          .where((game) => game.imageUrl != null && game.imageUrl!.trim().isNotEmpty)
+          .take(count * 3) // Get more games than needed to account for invalid images
+          .toList();
+      
+      if (gamesWithImages.isEmpty) {
+        print('[GameService] No games with images found');
+        return [];
+      }
+
+      print('[GameService] Starting optimized validation for ${gamesWithImages.length} games...');
+      
+      // Extract image URLs for batch validation
+      final imageUrls = gamesWithImages.map((game) => game.imageUrl!).toList();
+      
+      // Use batch validation for better performance
+      final validationResults = await ImageValidator.validateBatchConcurrent(imageUrls);
+      
+      // Filter games with valid images
+      final validatedGames = <GameModel>[];
+      for (final game in gamesWithImages) {
+        if (validationResults[game.imageUrl!] == true) {
+          validatedGames.add(game);
+          _usedGameIds.add(game.id);
+          
+          // Stop when we have enough games
+          if (validatedGames.length >= count) {
+            break;
+          }
+        }
+      }
+      
+      print('[GameService] ✓ Validated ${validatedGames.length} games successfully');
+      print('[GameService] Total used games: ${_usedGameIds.length}');
+      
+      return validatedGames;
     } catch (e) {
       print('[GameService] Error in fetchGames: $e');
+      return [];
+    }
+  }
+
+  /// Fast fetch method that prioritizes cached/known good images
+  /// This method checks cache first and falls back to validation only if needed
+  Future<List<GameModel>> fetchGamesFast({int count = 10}) async {
+    try {
+      final allGames = await _loadGamesFromAsset();
+      
+      if (allGames.isEmpty) {
+        return [];
+      }
+
+      // Get games that haven't been used yet
+      final availableGames = allGames.where((game) => !_usedGameIds.contains(game.id)).toList();
+      
+      if (availableGames.length < count * 2) {
+        _usedGameIds.clear();
+        availableGames.clear();
+        availableGames.addAll(allGames);
+      }
+
+      availableGames.shuffle(Random());
+      
+      final validatedGames = <GameModel>[];
+      final needsValidation = <GameModel>[];
+      
+      // First pass: Check cached results
+      for (final game in availableGames) {
+        if (game.imageUrl == null || game.imageUrl!.trim().isEmpty) continue;
+        
+        final cachedResult = ImageValidator.getCachedResult(game.imageUrl!);
+        if (cachedResult == true) {
+          validatedGames.add(game);
+          _usedGameIds.add(game.id);
+          if (validatedGames.length >= count) break;
+        } else if (cachedResult == null) {
+          needsValidation.add(game);
+        }
+      }
+      
+      // If we have enough from cache, return immediately
+      if (validatedGames.length >= count) {
+        return validatedGames.take(count).toList();
+      }
+      
+      // Second pass: Validate remaining images if needed
+      if (needsValidation.isNotEmpty && validatedGames.length < count) {
+        final remainingCount = count - validatedGames.length;
+        final toValidate = needsValidation.take(remainingCount * 2).toList();
+        
+        final imageUrls = toValidate.map((game) => game.imageUrl!).toList();
+        final validationResults = await ImageValidator.validateBatchConcurrent(imageUrls);
+        
+        for (final game in toValidate) {
+          if (validationResults[game.imageUrl!] == true) {
+            validatedGames.add(game);
+            _usedGameIds.add(game.id);
+            if (validatedGames.length >= count) break;
+          }
+        }
+      }
+      
+      return validatedGames.take(count).toList();
+    } catch (e) {
+      print('[GameService] Error in fetchGamesFast: $e');
       return [];
     }
   }
@@ -141,15 +252,57 @@ class GameService {
     }
   }
 
-  /// Clears the cached games (useful for testing or forcing reload)
+  /// Clears the cached games and used games tracking (useful for testing or forcing reload)
   void clearCache() {
     _cachedGames = null;
-    print('[GameService] Game cache cleared');
+    _usedGameIds.clear();
+    ImageValidator.clearCache();
+    print('[GameService] Game cache and used games tracking cleared');
+  }
+
+  /// Resets the used games tracking to allow games to be shown again
+  void resetUsedGames() {
+    _usedGameIds.clear();
+    print('[GameService] Used games tracking reset');
   }
 
   /// Gets the total number of available games
   Future<int> getTotalGameCount() async {
     final allGames = await _loadGamesFromAsset();
     return allGames.length;
+  }
+
+  /// Pre-warms the image validation cache in the background
+  /// This improves performance for subsequent game loads
+  Future<void> prewarmImageCache({int sampleSize = 50}) async {
+    try {
+      final allGames = await _loadGamesFromAsset();
+      
+      if (allGames.isEmpty) return;
+      
+      // Take a sample of games with images for pre-warming
+      final gamesWithImages = allGames
+          .where((game) => game.imageUrl != null && game.imageUrl!.trim().isNotEmpty)
+          .take(sampleSize)
+          .toList();
+      
+      if (gamesWithImages.isEmpty) return;
+      
+      print('[GameService] Pre-warming image cache with ${gamesWithImages.length} images...');
+      
+      // Extract image URLs
+      final imageUrls = gamesWithImages.map((game) => game.imageUrl!).toList();
+      
+      // Validate in background without blocking
+      ImageValidator.validateBatchConcurrent(imageUrls).then((results) {
+        final validCount = results.values.where((isValid) => isValid).length;
+        print('[GameService] ✓ Pre-warmed cache: $validCount/${results.length} images valid');
+      }).catchError((e) {
+        print('[GameService] Error pre-warming cache: $e');
+      });
+      
+    } catch (e) {
+      print('[GameService] Error in prewarmImageCache: $e');
+    }
   }
 } 

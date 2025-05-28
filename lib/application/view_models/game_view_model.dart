@@ -43,7 +43,8 @@ class GameViewModel extends ChangeNotifier {
   bool _hasMoreGames = true;
 
   GameViewModel() {
-    // fetchInitialGames();
+    // Start background cache pre-warming for better performance
+    _prewarmCacheInBackground();
   }
   
   /// Toggles fullscreen mode for all games globally
@@ -72,13 +73,14 @@ class GameViewModel extends ChangeNotifier {
     _errorMessage = null;
   }
 
-  /// Loads the initial set of games and initializes social interaction data
+  /// Loads the initial set of games with optimized performance
   Future<void> fetchInitialGames({int? count}) async {
     if (_isLoading && _games.isEmpty) return;
     _setLoading(true);
     _clearError();
     try {
-      final fetchedGames = await _gameService.fetchGames(count: count ?? _initialLoadCount);
+      // Use the fast fetch method that prioritizes cached results
+      final fetchedGames = await _gameService.fetchGamesFast(count: count ?? _initialLoadCount);
       _games = fetchedGames;
       for (var game in _games) {
         game.likeCount = _socialService.getLikeCount(game.id);
@@ -103,12 +105,13 @@ class GameViewModel extends ChangeNotifier {
     }
   }
 
-  /// Loads additional games for infinite scrolling
+  /// Loads additional games with optimized performance for infinite scrolling
   Future<void> fetchMoreGames({int? count}) async {
     if (_isLoading || !_hasMoreGames) return;
     _setLoading(true);
     try {
-      final moreGames = await _gameService.fetchGames(count: count ?? _additionalLoadCount);
+      // Use the fast fetch method for better performance
+      final moreGames = await _gameService.fetchGamesFast(count: count ?? _additionalLoadCount);
       
       // Process and cache each game
       for (var game in moreGames) {
@@ -285,6 +288,14 @@ class GameViewModel extends ChangeNotifier {
   /// Gets user statistics for comments across all games
   int getUserCommentCount(String userId) {
     return _socialService.getUserCommentCount(userId);
+  }
+
+  /// Pre-warms the image validation cache in the background
+  void _prewarmCacheInBackground() {
+    // Don't await this - let it run in background
+    _gameService.prewarmImageCache().catchError((e) {
+      print('[GameViewModel] Error pre-warming cache: $e');
+    });
   }
 }
  

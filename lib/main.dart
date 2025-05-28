@@ -20,17 +20,11 @@ import 'firebase_options.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 =======
 import 'utils/network_config.dart';
->>>>>>> 7320d77 (Games updated, SSL Certificate issues solved globally)
+import 'services/auth_service.dart';
+import 'services/game_service.dart';
+import 'services/social_service.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-<<<<<<< HEAD
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  runApp(const MyApp());
-}
-
-/* // use Firebase App Check for debugging on Android
-Future<void> main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   await FirebaseAppCheck.instance.activate(
@@ -44,13 +38,13 @@ Future<void> main() async {
 */
 =======
   
-  // Configure global HTTP client for better SSL handling
+  // Override HTTP client for images to handle SSL issues
   HttpOverrides.global = _CustomHttpOverrides();
   
   runApp(const MyApp());
 }
 
-/// Custom HTTP overrides to handle SSL certificate issues
+/// Custom HTTP overrides to handle SSL certificates for image loading
 class _CustomHttpOverrides extends HttpOverrides {
   @override
   HttpClient createHttpClient(SecurityContext? context) {

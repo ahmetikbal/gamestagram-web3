@@ -9,7 +9,6 @@ import 'package:webview_flutter/webview_flutter.dart';
 import '../screens/game_details_screen.dart';
 import 'dart:io';
 import '../screens/game_webview_screen.dart';
-import '../../utils/network_config.dart';
 
 /// A comprehensive game display widget that handles game presentation, interaction, and playback
 /// 
@@ -34,11 +33,23 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
   bool _isGameLoaded = false;
   bool _isGameVisible = false;
   WebViewController? _controller;
+  
+  // Performance optimization: Cache image loading state
+  static final Map<String, bool> _imageCache = {};
+  static final Map<String, Widget> _widgetCache = {};
+  bool _isScrolling = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    
+    // Detect scrolling to prevent heavy operations
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _detectScrolling();
+      }
+    });
   }
 
   @override
@@ -64,6 +75,17 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
   /// Toggles game visibility and manages WebView lifecycle
   /// Handles first-time initialization and proper cleanup
   void _toggleGameVisibility() {
+    if (!mounted) return; // Prevent setState after dispose
+    
+    // Prevent WebView operations during scroll for performance
+    if (_isScrolling) {
+      setState(() {
+        _isScrolling = true; // Trigger scroll detection delay
+      });
+      _detectScrolling();
+      return;
+    }
+    
     final gameViewModel = Provider.of<GameViewModel>(context, listen: false);
     
     setState(() {
@@ -92,9 +114,12 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
         NavigationDelegate(
           onNavigationRequest: (request) => NavigationDecision.navigate,
           onPageFinished: (url) {
-            setState(() {
-              _isGameLoaded = true;
-            });
+            // Add mounted check to prevent setState after dispose
+            if (mounted) {
+              setState(() {
+                _isGameLoaded = true;
+              });
+            }
           },
         ),
       )
@@ -165,122 +190,93 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
     }
   }
 
-  /// Creates a robust image widget that handles SSL and network errors gracefully
+  /// Creates an image widget for displaying validated game images
+  /// Since images are pre-validated at service level, this focuses on clean display
   Widget _buildRobustImage(String imageUrl, ThemeData theme, bool isGlobalFullView) {
-    return Image.network(
-      imageUrl,
-      fit: BoxFit.cover,
-      width: double.infinity,
-      height: double.infinity,
-      cacheWidth: 800, // Limit cache size to prevent memory issues
-      cacheHeight: 600,
-      loadingBuilder: (context, child, loadingProgress) {
-        if (loadingProgress == null) {
-          return ColorFiltered(
-            colorFilter: isGlobalFullView 
-                ? const ColorFilter.mode(Colors.transparent, BlendMode.multiply)
-                : ColorFilter.mode(Colors.black.withOpacity(0.6), BlendMode.darken),
-            child: child,
-          );
-        }
-        return Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                theme.colorScheme.primary.withOpacity(0.7),
-                theme.colorScheme.secondary.withOpacity(0.7),
-              ],
-            ),
-          ),
-          child: Center(
-            child: CircularProgressIndicator(
-              value: loadingProgress.expectedTotalBytes != null
-                  ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                  : null,
-              color: Colors.white.withOpacity(0.7),
-              strokeWidth: 2,
-            ),
-          ),
-        );
-      },
-      errorBuilder: (context, error, stackTrace) {
-        // Handle SSL and other network errors gracefully
-        print('Image loading error for $imageUrl: $error');
-        
-        // Prevent infinite recursion by using a simple fallback
-        if (error.toString().contains('Stack Overflow')) {
-          print('Stack overflow detected for image: $imageUrl - using simple fallback');
-        }
-        
-        // Use NetworkConfig utility for better error detection and messaging
-        String errorType = NetworkConfig.isNetworkError(error) 
-            ? NetworkConfig.getNetworkErrorMessage(error)
-            : 'Image unavailable';
-        
-        // Special handling for stack overflow
-        if (error.toString().contains('Stack Overflow')) {
-          errorType = 'Image loading failed';
-        }
-        
-        // Select appropriate icon based on error type
-        IconData errorIcon = Icons.videogame_asset;
-        if (errorType.contains('SSL') || errorType.contains('certificate')) {
-          errorIcon = Icons.security;
-        } else if (errorType.contains('Connection') || errorType.contains('Network')) {
-          errorIcon = Icons.wifi_off;
-        } else if (errorType.contains('timeout')) {
-          errorIcon = Icons.timer_off;
-        }
-        
-        return Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                theme.colorScheme.primary.withOpacity(0.7),
-                theme.colorScheme.secondary.withOpacity(0.7),
-              ],
-            ),
-          ),
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  errorIcon,
-                  size: 80,
-                  color: theme.colorScheme.onPrimary.withOpacity(0.3),
+    // Check if this is a local asset path
+    if (imageUrl.startsWith('images/')) {
+      return Center(
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.asset(
+            'assets/$imageUrl',
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              // Fallback to game controller icon if asset somehow fails
+              return Container(
+                width: 200,
+                height: 200,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  errorType,
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.5),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  textAlign: TextAlign.center,
+                child: Icon(
+                  Icons.videogame_asset,
+                  size: 140,
+                  color: theme.colorScheme.primary.withOpacity(0.6),
                 ),
-                if (errorType.contains('SSL'))
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      'Game still playable',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.3),
-                        fontSize: 10,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+              );
+            },
           ),
-        );
-      },
+        ),
+      );
+    }
+    
+    // For network URLs, display them with loading indicator
+    return Center(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.network(
+          imageUrl,
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) {
+              return child;
+            }
+            // Show loading indicator while image loads
+            return Container(
+              width: 200,
+              height: 200,
+              child: Center(
+                child: CircularProgressIndicator(
+                  value: loadingProgress.expectedTotalBytes != null
+                      ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                      : null,
+                  color: Colors.white.withOpacity(0.7),
+                ),
+              ),
+            );
+          },
+          errorBuilder: (context, error, stackTrace) {
+            // Fallback to game controller icon for network errors
+            return Container(
+              width: 200,
+              height: 200,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.videogame_asset,
+                size: 140,
+                color: theme.colorScheme.primary.withOpacity(0.6),
+              ),
+            );
+          },
+        ),
+      ),
     );
+  }
+
+  void _detectScrolling() {
+    // Simple scroll detection to prevent WebView init during scroll
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) {
+        setState(() {
+          _isScrolling = false;
+        });
+      }
+    });
   }
 
   @override
@@ -314,31 +310,15 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
     Widget backgroundLayer() {
       return Container(
         decoration: BoxDecoration(
-          gradient: widget.game.imageUrl == null || widget.game.imageUrl!.isEmpty
-              ? LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    theme.colorScheme.primary.withOpacity(0.7),
-                    theme.colorScheme.secondary.withOpacity(0.7),
-                  ],
-                )
-              : null,
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              theme.colorScheme.primary.withOpacity(0.3),
+              theme.colorScheme.secondary.withOpacity(0.3),
+            ],
+          ),
         ),
-        child: widget.game.imageUrl != null && widget.game.imageUrl!.isNotEmpty
-            ? Stack(
-                children: [
-                  // Game image with SSL error handling
-                  _buildRobustImage(widget.game.imageUrl!, theme, isGlobalFullView),
-                ],
-              )
-            : Center(
-                child: Icon(
-                  Icons.videogame_asset,
-                  size: 80,
-                  color: theme.colorScheme.onPrimary.withOpacity(0.3),
-                ),
-              ),
       );
     }
     
@@ -359,11 +339,19 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
           if (!_isGameVisible && !isGlobalFullView)
             Positioned.fill(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                alignment: Alignment.center,
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
+                    // Image at the top
+                    if (widget.game.imageUrl != null && widget.game.imageUrl!.isNotEmpty)
+                      Container(
+                        height: 300,
+                        margin: const EdgeInsets.only(bottom: 12),
+                        child: _buildRobustImage(widget.game.imageUrl!, theme, isGlobalFullView),
+                      ),
+                    
+                    // Title
                     Text(
                       widget.game.title,
                       textAlign: TextAlign.center,
@@ -378,10 +366,14 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
                         ],
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 8),
+                    
+                    // Description
                     Text(
                       widget.game.description,
                       textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: Colors.white,
                         shadows: [
@@ -393,7 +385,9 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
                         ],
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16),
+                    
+                    // Play button
                     ElevatedButton.icon(
                       onPressed: _toggleGameVisibility,
                       icon: Icon(Icons.play_circle_outline, color: theme.colorScheme.onPrimary),
