@@ -6,6 +6,15 @@ import '../../data/models/interaction_model.dart';
 import '../../application/view_models/game_view_model.dart';
 import '../../application/view_models/auth_view_model.dart';
 
+/// A modal bottom sheet widget for displaying and managing game comments
+/// 
+/// Features:
+/// - Glassmorphism design with backdrop blur effect
+/// - Real-time comment loading and posting
+/// - Chat-style comment bubbles with user identification
+/// - Keyboard-aware layout that adjusts for input
+/// - Optimistic UI updates for smooth user experience
+/// - Auto-scroll to new comments for better UX
 class CommentPanelWidget extends StatefulWidget {
   final GameModel game;
 
@@ -24,10 +33,14 @@ class _CommentPanelWidgetState extends State<CommentPanelWidget> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+<<<<<<< HEAD
       Provider.of<GameViewModel>(
         context,
         listen: false,
       ).fetchCommentsForGame(widget.game.id);
+=======
+      Provider.of<GameViewModel>(context, listen: false).fetchComments(widget.game.id);
+>>>>>>> 650e07f (Refactors on commenting and meaningful on-line explanations)
     });
   }
 
@@ -52,6 +65,7 @@ class _CommentPanelWidgetState extends State<CommentPanelWidget> {
     }
 
     setState(() => _isPostingComment = true);
+<<<<<<< HEAD
     final success = await gameViewModel.addCommentToGame(
       widget.game.id,
       currentUser.id,
@@ -79,6 +93,21 @@ class _CommentPanelWidgetState extends State<CommentPanelWidget> {
           ),
         );
       }
+=======
+    await gameViewModel.addComment(widget.game.id, currentUser.id, _commentController.text.trim());
+    setState(() => _isPostingComment = false);
+
+    _commentController.clear();
+    FocusScope.of(context).unfocus();
+    
+    // Scroll to top to see new comment
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+>>>>>>> 650e07f (Refactors on commenting and meaningful on-line explanations)
     }
   }
 
@@ -166,7 +195,7 @@ class _CommentPanelWidgetState extends State<CommentPanelWidget> {
 
                   // Comment text
                   Text(
-                    comment.text ?? '',
+                    comment.content,
                     style: TextStyle(
                       color:
                           isCurrentUser

@@ -6,10 +6,17 @@ import '../../application/view_models/auth_view_model.dart';
 import 'comment_panel_widget.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:webview_flutter/webview_flutter.dart';
-import 'dart:ui';
-import 'dart:math' as math;
 import '../screens/game_details_screen.dart';
 
+/// A comprehensive game display widget that handles game presentation, interaction, and playback
+/// 
+/// This widget provides:
+/// - Game information display with background images or gradients
+/// - WebView-based game playback with lifecycle management
+/// - Social interaction buttons (like, comment, share, save)
+/// - Full-view mode toggle for immersive browsing
+/// - Deep linking support for game sharing
+/// - Optimized WebView resource management and cleanup
 class GameFrameWidget extends StatefulWidget {
   final GameModel game;
   final VoidCallback? onPlay;
@@ -51,6 +58,8 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
     }
   }
 
+  /// Toggles game visibility and manages WebView lifecycle
+  /// Handles first-time initialization and proper cleanup
   void _toggleGameVisibility() {
     final gameViewModel = Provider.of<GameViewModel>(context, listen: false);
     
@@ -70,6 +79,7 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
     });
   }
 
+  /// Initializes WebView with proper navigation handling and lifecycle callbacks
   void _initializeWebView() {
     if (_isGameLoaded) return;
 
@@ -90,6 +100,8 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
     _isGameLoaded = true;
   }
 
+  /// Pauses WebView content including audio, video, and animations
+  /// Uses JavaScript injection to gracefully pause game elements
   void _pauseWebView() {
     if (_controller != null) {
       _controller!.runJavaScript('''
@@ -113,6 +125,7 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
     }
   }
 
+  /// Resumes WebView content by restoring visibility state
   void _resumeWebView() {
     if (_controller != null) {
       _controller!.runJavaScript('''
@@ -125,6 +138,8 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
     }
   }
 
+  /// Performs comprehensive WebView cleanup to prevent memory leaks
+  /// Releases WebGL contexts, clears timers, and frees resources
   void _cleanupWebView() {
     if (_controller != null) {
       _controller!.runJavaScript('''
@@ -153,9 +168,7 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
     final gameViewModel = Provider.of<GameViewModel>(context);
     final currentUser = authViewModel.currentUser;
     final theme = Theme.of(context);
-    final onBackgroundColor = theme.colorScheme.onBackground;
     final primaryAccentColor = theme.colorScheme.primary;
-    final secondaryIconColor = theme.colorScheme.onSurface.withOpacity(0.7);
 
     // Get global full view state
     final bool isGlobalFullView = gameViewModel.isGlobalFullViewEnabled;
@@ -164,9 +177,6 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
     final safeAreaTop = MediaQuery.of(context).padding.top;
     // Use a smaller offset since we no longer have an app bar
     final topOffset = safeAreaTop + 15;
-    
-    // Get screen width to handle overflow
-    final screenWidth = MediaQuery.of(context).size.width;
 
     // Check if game is saved
     final bool isSaved = currentUser != null ? 
@@ -436,7 +446,9 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
               children: [
                 Consumer<GameViewModel>(
                   builder: (context, gvm, child) {
-                    bool isLiked = gvm.isGameLikedByUser(widget.game.id, currentUser?.id);
+                    bool isLiked = currentUser != null 
+                        ? gvm.isGameLikedByUser(widget.game.id, currentUser.id)
+                        : false;
                     int currentLikeCount = gvm.getGameLikeCount(widget.game.id);
                     return Column(
                       children: [

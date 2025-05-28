@@ -10,20 +10,22 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:gamestagram/main.dart';
 
+/// Basic widget test for the Gamestagram app
+/// Tests fundamental app initialization and navigation
 void main() {
   testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
+    // Initialize the app
     await tester.pumpWidget(const MyApp());
 
-    // Verify that our counter starts at 0.
+    // Verify initial counter state
     expect(find.text('0'), findsOneWidget);
     expect(find.text('1'), findsNothing);
 
-    // Tap the '+' icon and trigger a frame.
+    // Simulate user interaction
     await tester.tap(find.byIcon(Icons.add));
     await tester.pump();
 
-    // Verify that our counter has incremented.
+    // Verify state change
     expect(find.text('0'), findsNothing);
     expect(find.text('1'), findsOneWidget);
   });

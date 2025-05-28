@@ -2,7 +2,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../data/models/interaction_model.dart';
 import '../data/models/user_model.dart';
 
+/// Service for managing social interactions like likes, saves, and comments
+/// Uses SharedPreferences for local data persistence in this demo app
 class SocialService {
+<<<<<<< HEAD
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Collection references
@@ -336,5 +339,186 @@ class SocialService {
       print('[SocialService] Error getting comment count for user $userId: $e');
       return 0;
     }
+=======
+  static const String _likesKey = 'game_likes';
+  static const String _commentsKey = 'game_comments';
+  static const String _savedGamesKey = 'saved_games';
+
+  Map<String, Set<String>> _gameLikes = {};
+  Map<String, List<InteractionModel>> _gameComments = {};
+  Map<String, Set<String>> _userSavedGames = {};
+
+  SocialService() {
+    _loadDataFromPrefs();
+  }
+
+  /// Loads social interaction data from SharedPreferences
+  Future<void> _loadDataFromPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Load likes data
+      final String? likesJsonString = prefs.getString(_likesKey);
+      if (likesJsonString != null) {
+        final Map<String, dynamic> likesData = jsonDecode(likesJsonString);
+        _gameLikes = likesData.map((gameId, userIds) => 
+          MapEntry(gameId, Set<String>.from(userIds as List)));
+      }
+
+      // Load comments data
+      final String? commentsJsonString = prefs.getString(_commentsKey);
+      if (commentsJsonString != null) {
+        final Map<String, dynamic> commentsData = jsonDecode(commentsJsonString);
+        _gameComments = commentsData.map((gameId, comments) => 
+          MapEntry(gameId, (comments as List).map((c) => 
+            InteractionModel.fromJson(c as Map<String, dynamic>)).toList()));
+      }
+
+      // Load saved games data
+      final String? savedGamesJsonString = prefs.getString(_savedGamesKey);
+      if (savedGamesJsonString != null) {
+        final Map<String, dynamic> savedGamesData = jsonDecode(savedGamesJsonString);
+        _userSavedGames = savedGamesData.map((userId, gameIds) => 
+          MapEntry(userId, Set<String>.from(gameIds as List)));
+      }
+    } catch (e) {
+      print('[SocialService] Error loading data from SharedPreferences: $e');
+      _gameLikes = {};
+      _gameComments = {};
+      _userSavedGames = {};
+    }
+  }
+
+  /// Persists social interaction data to SharedPreferences
+  Future<void> _saveDataToPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Save likes data
+      final likesData = _gameLikes.map((gameId, userIds) => 
+        MapEntry(gameId, userIds.toList()));
+      await prefs.setString(_likesKey, jsonEncode(likesData));
+      
+      // Save comments data
+      final commentsData = _gameComments.map((gameId, comments) => 
+        MapEntry(gameId, comments.map((c) => c.toJson()).toList()));
+      await prefs.setString(_commentsKey, jsonEncode(commentsData));
+      
+      // Save saved games data
+      final savedGamesData = _userSavedGames.map((userId, gameIds) => 
+        MapEntry(userId, gameIds.toList()));
+      await prefs.setString(_savedGamesKey, jsonEncode(savedGamesData));
+    } catch (e) {
+      print('[SocialService] Error saving data to SharedPreferences: $e');
+    }
+  }
+
+  /// Toggles like status for a game by a user
+  /// Returns the new like status (true if liked, false if unliked)
+  Future<bool> toggleLikeGame(String gameId, String userId) async {
+    _gameLikes.putIfAbsent(gameId, () => <String>{});
+    
+    bool isCurrentlyLiked = _gameLikes[gameId]!.contains(userId);
+    
+    if (isCurrentlyLiked) {
+      _gameLikes[gameId]!.remove(userId);
+      await _saveDataToPrefs();
+      return false;
+    } else {
+      _gameLikes[gameId]!.add(userId);
+      await _saveDataToPrefs();
+      return true;
+    }
+  }
+
+  /// Toggles save status for a game by a user
+  /// Returns the new save status (true if saved, false if unsaved)
+  Future<bool> toggleSaveGame(String gameId, String userId) async {
+    _userSavedGames.putIfAbsent(userId, () => <String>{});
+    
+    bool isCurrentlySaved = _userSavedGames[userId]!.contains(gameId);
+    
+    if (isCurrentlySaved) {
+      _userSavedGames[userId]!.remove(gameId);
+      await _saveDataToPrefs();
+      return false;
+    } else {
+      _userSavedGames[userId]!.add(gameId);
+      await _saveDataToPrefs();
+      return true;
+    }
+  }
+
+  /// Adds a comment to a game
+  /// Returns the created comment or null if user not found
+  Future<InteractionModel?> addComment(String gameId, String userId, String content) async {
+    // In a real app, you'd fetch user details from a user service
+    UserModel? user = _getMockUser(userId);
+    if (user == null) {
+      return null;
+    }
+
+    final comment = InteractionModel(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      userId: userId,
+      username: user.username,
+      content: content,
+      timestamp: DateTime.now(),
+      type: InteractionType.comment,
+    );
+
+    _gameComments.putIfAbsent(gameId, () => []);
+    _gameComments[gameId]!.add(comment);
+    
+    await _saveDataToPrefs();
+    return comment;
+  }
+
+  /// Retrieves all comments for a specific game
+  /// Returns comments sorted by timestamp (newest first)
+  Future<List<InteractionModel>> getComments(String gameId) async {
+    final comments = _gameComments[gameId] ?? [];
+    comments.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    return comments;
+  }
+
+  /// Gets the total number of likes for a game
+  int getLikeCount(String gameId) {
+    return _gameLikes[gameId]?.length ?? 0;
+  }
+
+  /// Gets the total number of likes made by a user across all games
+  int getUserLikeCount(String userId) {
+    return _gameLikes.values.where((likes) => likes.contains(userId)).length;
+  }
+
+  /// Gets the total number of comments made by a user across all games
+  int getUserCommentCount(String userId) {
+    return _gameComments.values
+        .expand((comments) => comments)
+        .where((comment) => comment.userId == userId)
+        .length;
+  }
+
+  /// Gets the set of game IDs saved by a specific user
+  Set<String> getSavedGameIds(String userId) {
+    return _userSavedGames[userId] ?? <String>{};
+  }
+
+  /// Checks if a game is liked by a specific user
+  bool isGameLikedByUser(String gameId, String userId) {
+    return _gameLikes[gameId]?.contains(userId) ?? false;
+  }
+
+  /// Checks if a game is saved by a specific user
+  bool isGameSavedByUser(String gameId, String userId) {
+    return _userSavedGames[userId]?.contains(gameId) ?? false;
+  }
+
+  /// Mock user lookup - in a real app, this would query a user service
+  UserModel? _getMockUser(String userId) {
+    // This is a simplified mock implementation
+    return UserModel(id: userId, username: 'User$userId', email: 'user$userId@example.com');
+>>>>>>> 650e07f (Refactors on commenting and meaningful on-line explanations)
   }
 }

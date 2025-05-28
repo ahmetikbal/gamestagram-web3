@@ -2,12 +2,31 @@ import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../data/models/user_model.dart';
 
+/// Service for handling user authentication and session management
+/// Uses SharedPreferences for local data persistence in this demo app
 class AuthService {
   final firebase_auth.FirebaseAuth _auth = firebase_auth.FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+<<<<<<< HEAD
   // Get user data from Firestore
   Future<UserModel?> _getUserData(String uid) async {
+=======
+  Map<String, UserModel> _mockUserDetails = {}; // email: UserModel
+  Map<String, String> _mockUserPasswords = {}; // email: password
+  int _userIdCounter = 0;
+
+  // Flag to ensure prefs are loaded only once
+  bool _prefsLoaded = false;
+
+  AuthService() {
+    _loadDataFromPrefs(); // Load data when service is instantiated
+  }
+
+  /// Loads user data from SharedPreferences on service initialization
+  Future<void> _loadDataFromPrefs() async {
+    if (_prefsLoaded) return;
+>>>>>>> 650e07f (Refactors on commenting and meaningful on-line explanations)
     try {
       DocumentSnapshot doc =
           await _firestore.collection('Users').doc(uid).get();
@@ -21,12 +40,40 @@ class AuthService {
       }
       return null;
     } catch (e) {
+<<<<<<< HEAD
       print('[AuthService] Error getting user data: $e');
       return null;
     }
   }
 
   // Register new user
+=======
+      print('[AuthService] Error loading data from SharedPreferences: $e');
+      // Initialize with empty if error, or handle more gracefully
+      _mockUserDetails = {};
+      _mockUserPasswords = {};
+      _userIdCounter = 0;
+    }
+  }
+
+  /// Persists user data to SharedPreferences
+  Future<void> _saveDataToPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final List<Map<String, dynamic>> userList = _mockUserDetails.values.map((user) => user.toJson()).toList();
+      await prefs.setString(_usersKey, jsonEncode(userList));
+      await prefs.setString(_passwordsKey, jsonEncode(_mockUserPasswords));
+      await prefs.setInt(_userIdCounterKey, _userIdCounter);
+      // Note: We don't save _lastLoggedInUserEmailKey here directly as it's managed by login/logout specifically
+      print('[AuthService] Saved general data to SharedPreferences. Users: ${_mockUserDetails.length}, Counter: $_userIdCounter');
+    } catch (e) {
+      print('[AuthService] Error saving data to SharedPreferences: $e');
+    }
+  }
+
+  /// Registers a new user with email, username, and password
+  /// Returns success status and user data or error message
+>>>>>>> 650e07f (Refactors on commenting and meaningful on-line explanations)
   Future<Map<String, dynamic>> register({
     required String username,
     required String email,
@@ -95,7 +142,12 @@ class AuthService {
     }
   }
 
+<<<<<<< HEAD
   // Login user
+=======
+  /// Authenticates user with email/username and password
+  /// Supports login with either email or username
+>>>>>>> 650e07f (Refactors on commenting and meaningful on-line explanations)
   Future<Map<String, dynamic>> login({
     required String emailOrUsername,
     required String password,
@@ -120,6 +172,7 @@ class AuthService {
 
         email = userQuery.docs.first.get('email') as String;
       }
+<<<<<<< HEAD
 
       // Sign in with Firebase Auth
       firebase_auth.UserCredential userCredential = await _auth
@@ -152,6 +205,26 @@ class AuthService {
   }
 
   // Try auto-login
+=======
+      return {'success': true, 'message': 'Login successful', 'user': foundUser};
+    } else {
+      print('[AuthService] Login failed for $emailOrUsername.');
+      print('[AuthService] foundUser: ${foundUser?.id}, userEmailKey: $userEmailKey, storedPassword: ${_mockUserPasswords[userEmailKey]}');
+      print('[AuthService] Current _mockUserDetails: $_mockUserDetails');
+      print('[AuthService] Current _mockUserPasswords: $_mockUserPasswords');
+      return {'success': false, 'message': 'Invalid email/username or password'};
+    }
+  }
+
+  /// Ensures preferences are loaded before performing operations
+  Future<void> _ensurePrefsLoaded() async {
+    if (!_prefsLoaded) {
+      await _loadDataFromPrefs();
+    }
+  }
+
+  /// Attempts to automatically log in user based on stored session
+>>>>>>> 650e07f (Refactors on commenting and meaningful on-line explanations)
   Future<UserModel?> tryAutoLogin() async {
     try {
       firebase_auth.User? firebaseUser = _auth.currentUser;
@@ -169,7 +242,11 @@ class AuthService {
     }
   }
 
+<<<<<<< HEAD
   // Logout user
+=======
+  /// Logs out the current user and clears session data
+>>>>>>> 650e07f (Refactors on commenting and meaningful on-line explanations)
   Future<void> logout() async {
     try {
       await _auth.signOut();

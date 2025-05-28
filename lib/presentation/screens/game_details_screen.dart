@@ -60,6 +60,7 @@ class _GameDetailsScreenState extends State<GameDetailsScreen>
     super.dispose();
   }
 
+  /// Shares the game via deep link
   void _shareGame() {
     final String gameDeepLink = 'gamestagram://game/${widget.game.id}';
     final String message =
@@ -67,6 +68,7 @@ class _GameDetailsScreenState extends State<GameDetailsScreen>
     Share.share(message);
   }
 
+  /// Navigates to the game's web view for playing
   void _playGame() {
     Navigator.push(
       context,
@@ -81,7 +83,7 @@ class _GameDetailsScreenState extends State<GameDetailsScreen>
     );
   }
 
-  // Helper method to get appropriate icons for different game genres
+  /// Returns appropriate icon for different game genres
   IconData _getGenreIcon(String genre) {
     switch (genre.toLowerCase()) {
       case 'puzzle':

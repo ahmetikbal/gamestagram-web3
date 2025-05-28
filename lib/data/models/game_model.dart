@@ -1,5 +1,6 @@
-import 'package:flutter/foundation.dart';
+import 'dart:convert';
 
+/// Represents a game with its metadata and user interaction state
 class GameModel {
   final String id;
   final String title;
@@ -25,7 +26,7 @@ class GameModel {
     this.isSavedByCurrentUser = false,
   });
 
-  // Factory constructor to create a GameModel from JSON
+  /// Creates a GameModel instance from JSON data
   factory GameModel.fromJson(Map<String, dynamic> json) {
     return GameModel(
       id: json['id'] as String,
@@ -41,7 +42,7 @@ class GameModel {
     );
   }
 
-  // Method to convert GameModel instance to JSON
+  /// Converts GameModel instance to JSON format
   Map<String, dynamic> toJson() {
     return {
       'id': id,

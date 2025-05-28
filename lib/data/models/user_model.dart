@@ -1,3 +1,4 @@
+/// Represents a user with their profile information and interaction statistics
 class UserModel {
   final String id;
   final String username;
