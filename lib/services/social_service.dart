@@ -3,7 +3,7 @@ import '../data/models/interaction_model.dart';
 import '../data/models/user_model.dart';
 
 /// Service for managing social interactions like likes, saves, and comments
-/// Uses SharedPreferences for local data persistence in this demo app
+/// Uses SharedPreferences for local data persistence with optimized caching
 class SocialService {
 <<<<<<< HEAD
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -347,9 +347,21 @@ class SocialService {
   Map<String, Set<String>> _gameLikes = {};
   Map<String, List<InteractionModel>> _gameComments = {};
   Map<String, Set<String>> _userSavedGames = {};
+  
+  // Comment caching for better performance
+  static const int _commentsPerPage = 20;
+  final Map<String, List<InteractionModel>> _commentsCache = {};
+  final Map<String, bool> _commentsFullyLoaded = {};
+  final Map<String, int> _commentCounts = {}; // Cache comment counts
+
+  // In-memory comment storage for instant access
+  final Map<String, List<InteractionModel>> _memoryComments = {};
+  final Map<String, int> _memoryCounts = {};
+  bool _persistenceEnabled = true;
 
   SocialService() {
     _loadDataFromPrefs();
+    _initializeMemoryFromStorage();
   }
 
   /// Loads social interaction data from SharedPreferences
@@ -389,7 +401,20 @@ class SocialService {
     }
   }
 
-  /// Persists social interaction data to SharedPreferences
+  /// Clears comment caches for memory management
+  void clearCommentCache({String? gameId}) {
+    if (gameId != null) {
+      _commentsCache.remove(gameId);
+      _commentsFullyLoaded.remove(gameId);
+      _commentCounts.remove(gameId);
+    } else {
+      _commentsCache.clear();
+      _commentsFullyLoaded.clear();
+      _commentCounts.clear();
+    }
+  }
+
+  /// Persists social interaction data to SharedPreferences with optimized caching
   Future<void> _saveDataToPrefs() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -449,37 +474,129 @@ class SocialService {
     }
   }
 
-  /// Adds a comment to a game
-  /// Returns the created comment or null if user not found
-  Future<InteractionModel?> addComment(String gameId, String userId, String content) async {
-    // In a real app, you'd fetch user details from a user service
-    UserModel? user = _getMockUser(userId);
-    if (user == null) {
-      return null;
-    }
-
+  /// Adds a comment with instant in-memory storage and background persistence
+  Future<InteractionModel?> addCommentFast(String gameId, String userId, String content) async {
+    // Create comment immediately without any async operations
     final comment = InteractionModel(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id: '${DateTime.now().millisecondsSinceEpoch}_$userId',
       userId: userId,
-      username: user.username,
+      username: 'User $userId', // Fast mock username
       content: content,
       timestamp: DateTime.now(),
       type: InteractionType.comment,
     );
 
-    _gameComments.putIfAbsent(gameId, () => []);
-    _gameComments[gameId]!.add(comment);
+    // Store in memory immediately for instant access
+    _memoryComments.putIfAbsent(gameId, () => []);
+    _memoryComments[gameId]!.insert(0, comment);
+    _memoryCounts[gameId] = (_memoryCounts[gameId] ?? 0) + 1;
     
-    await _saveDataToPrefs();
+    // Update cache immediately for instant UI feedback
+    _commentsCache[gameId] = List.from(_memoryComments[gameId]!);
+    _commentCounts[gameId] = _memoryCounts[gameId]!;
+    
+    // Background persistence (fire and forget) - optimized
+    if (_persistenceEnabled) {
+      _addCommentToPersistentStorageOptimized(gameId, comment);
+    }
+    
     return comment;
   }
+  
+  /// Ultra-optimized background persistence
+  void _addCommentToPersistentStorageOptimized(String gameId, InteractionModel comment) {
+    // Use a more efficient background operation
+    Future(() async {
+      try {
+        _gameComments.putIfAbsent(gameId, () => []);
+        _gameComments[gameId]!.insert(0, comment);
+        
+        // Batch save operations to reduce I/O
+        _scheduleBatchSave();
+      } catch (e) {
+        print('[SocialService] Background persistence error: $e');
+      }
+    });
+  }
+  
+  bool _saveScheduled = false;
+  
+  /// Batch save operations for better performance
+  void _scheduleBatchSave() {
+    if (_saveScheduled) return;
+    
+    _saveScheduled = true;
+    Future.delayed(const Duration(milliseconds: 500), () async {
+      if (_saveScheduled) {
+        await _saveDataToPrefs();
+        _saveScheduled = false;
+      }
+    });
+  }
+  
+  /// Fast comment retrieval from memory
+  List<InteractionModel> getCommentsFast(String gameId) {
+    return _memoryComments[gameId] ?? [];
+  }
+  
+  /// Fast comment count from memory
+  int getCommentCountFast(String gameId) {
+    return _memoryCounts[gameId] ?? 0;
+  }
+  
+  /// Retrieves comments for a game with caching and pagination
+  /// Returns cached comments immediately if available
+  Future<List<InteractionModel>> getComments(String gameId, {int page = 0, bool forceRefresh = false}) async {
+    // Return cached comments immediately if available and not forcing refresh
+    if (!forceRefresh && _commentsCache.containsKey(gameId) && page == 0) {
+      return _commentsCache[gameId]!;
+    }
+    
+    // Load from storage if not in cache or refreshing
+    final allComments = _gameComments[gameId] ?? [];
+    allComments.sort((a, b) => b.timestamp.compareTo(a.timestamp)); // Newest first
+    
+    // Cache the full list for instant access
+    _commentsCache[gameId] = allComments;
+    _commentsFullyLoaded[gameId] = true;
+    _commentCounts[gameId] = allComments.length;
+    
+    // Return paginated results
+    final startIndex = page * _commentsPerPage;
+    final endIndex = (startIndex + _commentsPerPage).clamp(0, allComments.length);
+    
+    if (startIndex >= allComments.length) {
+      return [];
+    }
+    
+    return allComments.sublist(startIndex, endIndex);
+  }
 
-  /// Retrieves all comments for a specific game
-  /// Returns comments sorted by timestamp (newest first)
-  Future<List<InteractionModel>> getComments(String gameId) async {
-    final comments = _gameComments[gameId] ?? [];
-    comments.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-    return comments;
+  /// Fast method to get cached comments without storage access
+  /// Useful for immediate UI updates
+  List<InteractionModel> getCachedComments(String gameId) {
+    return _commentsCache[gameId] ?? [];
+  }
+  
+  /// Fast method to get comment count from cache
+  int getCommentCount(String gameId) {
+    return _commentCounts[gameId] ?? _gameComments[gameId]?.length ?? 0;
+  }
+  
+  /// Pre-loads comments for multiple games in background
+  /// Improves performance when scrolling through games
+  Future<void> preloadComments(List<String> gameIds) async {
+    final futures = gameIds.map((gameId) async {
+      if (!_commentsCache.containsKey(gameId)) {
+        await getComments(gameId);
+      }
+    });
+    
+    // Execute preloading concurrently but don't wait for all to complete
+    Future.wait(futures).catchError((e) {
+      print('[SocialService] Error preloading comments: $e');
+      return <Null>[];
+    });
   }
 
   /// Gets the total number of likes for a game
@@ -520,5 +637,23 @@ class SocialService {
     // This is a simplified mock implementation
     return UserModel(id: userId, username: 'User$userId', email: 'user$userId@example.com');
 >>>>>>> 650e07f (Refactors on commenting and meaningful on-line explanations)
+  }
+
+  /// Initialize in-memory storage from persistent data in background
+  void _initializeMemoryFromStorage() {
+    Future.microtask(() {
+      try {
+        // Copy comments to memory for fast access
+        for (final entry in _gameComments.entries) {
+          _memoryComments[entry.key] = List.from(entry.value);
+          _memoryCounts[entry.key] = entry.value.length;
+          _commentsCache[entry.key] = List.from(entry.value);
+          _commentCounts[entry.key] = entry.value.length;
+        }
+        print('[SocialService] Memory storage initialized with ${_memoryComments.length} games');
+      } catch (e) {
+        print('[SocialService] Error initializing memory storage: $e');
+      }
+    });
   }
 }

@@ -26,6 +26,7 @@ class GameViewModel extends ChangeNotifier {
   List<InteractionModel> get currentViewingGameComments => _currentViewingGameComments;
   bool _isLoadingComments = false;
   bool get isLoadingComments => _isLoadingComments;
+  String? _currentCommentsGameId; // Track which game's comments are currently loaded
   
   // Global fullscreen mode flag for all games
   bool _isGlobalFullViewEnabled = false;
@@ -41,6 +42,10 @@ class GameViewModel extends ChangeNotifier {
   final int _loadThreshold = 2; // Load more when 2 games remain
   final Map<String, GameModel> _gameCache = {};
   bool _hasMoreGames = true;
+
+  // Comment pagination
+  int _commentsPage = 0;
+  bool _hasMoreComments = true;
 
   GameViewModel() {
     // Start background cache pre-warming for better performance
@@ -88,13 +93,15 @@ class GameViewModel extends ChangeNotifier {
         // Cache the game for better performance
         _gameCache[game.id] = game;
         
-        // Initialize comment counts
-        final comments = await _socialService.getComments(game.id);
-        game.commentCount = comments.length;
+        // Use fast comment count for instant loading
+        game.commentCount = _socialService.getCommentCountFast(game.id);
       }
       
       // If we received fewer games than requested, we've likely reached the end
       _hasMoreGames = fetchedGames.length >= (count ?? _initialLoadCount);
+      
+      // Preload comments for these games in background
+      _preloadNewGameComments(fetchedGames);
       
       print('[GameViewModel] Initial games loaded: ${_games.length}');
     } catch (e) {
@@ -120,15 +127,17 @@ class GameViewModel extends ChangeNotifier {
         // Cache the game for better performance
         _gameCache[game.id] = game;
         
-        // Initialize comment counts
-        final comments = await _socialService.getComments(game.id);
-        game.commentCount = comments.length;
+        // Use fast comment count for instant loading
+        game.commentCount = _socialService.getCommentCountFast(game.id);
       }
       
       _games.addAll(moreGames);
       
       // Update whether we have more games to load
       _hasMoreGames = moreGames.length >= (count ?? _additionalLoadCount);
+      
+      // Preload comments for these games in background
+      _preloadNewGameComments(moreGames);
       
       print('[GameViewModel] More games loaded. Total: ${_games.length}');
     } catch (e) {
@@ -243,41 +252,162 @@ class GameViewModel extends ChangeNotifier {
     return game.likeCount;
   }
 
-  /// Fetches comments for a specific game
-  Future<void> fetchComments(String gameId) async {
+  /// Fetches comments for a specific game with optimized caching
+  /// Shows cached comments immediately, then loads fresh data in background
+  Future<void> fetchComments(String gameId, {bool forceRefresh = false}) async {
+    // If switching to a different game, reset pagination
+    if (_currentCommentsGameId != gameId) {
+      _currentCommentsGameId = gameId;
+      _commentsPage = 0;
+      _hasMoreComments = true;
+      _currentViewingGameComments.clear();
+    }
+    
+    // Show cached comments immediately for instant UI feedback
+    if (!forceRefresh && _commentsPage == 0) {
+      final cachedComments = _socialService.getCachedComments(gameId);
+      if (cachedComments.isNotEmpty) {
+        // Remove duplicates by ID
+        final uniqueComments = <InteractionModel>[];
+        final seenIds = <String>{};
+        for (final comment in cachedComments) {
+          if (!seenIds.contains(comment.id)) {
+            uniqueComments.add(comment);
+            seenIds.add(comment.id);
+          }
+        }
+        _currentViewingGameComments = uniqueComments;
+        notifyListeners();
+      }
+    }
+    
+    // Load fresh comments in background
     _setLoadingComments(true);
     try {
-      _currentViewingGameComments = await _socialService.getComments(gameId);
-      print('[GameViewModel] Fetched ${_currentViewingGameComments.length} comments for game $gameId');
+      final comments = await _socialService.getComments(gameId, page: _commentsPage, forceRefresh: forceRefresh);
+      
+      if (_commentsPage == 0) {
+        // Remove duplicates by ID for fresh load
+        final uniqueComments = <InteractionModel>[];
+        final seenIds = <String>{};
+        for (final comment in comments) {
+          if (!seenIds.contains(comment.id)) {
+            uniqueComments.add(comment);
+            seenIds.add(comment.id);
+          }
+        }
+        _currentViewingGameComments = uniqueComments;
+      } else {
+        // For pagination, check for duplicates against existing comments
+        final existingIds = _currentViewingGameComments.map((c) => c.id).toSet();
+        final newComments = comments.where((c) => !existingIds.contains(c.id)).toList();
+        _currentViewingGameComments.addAll(newComments);
+      }
+      
+      _hasMoreComments = comments.length >= 20; // Assuming 20 comments per page
+      print('[GameViewModel] Fetched ${comments.length} comments for game $gameId (page $_commentsPage)');
     } catch (e) {
       print('[GameViewModel] Error fetching comments for $gameId: $e');
-      _currentViewingGameComments = [];
+      if (_commentsPage == 0) {
+        _currentViewingGameComments = [];
+      }
     } finally {
       _setLoadingComments(false);
     }
   }
+  
+  /// Loads more comments for pagination
+  Future<void> fetchMoreComments() async {
+    if (_isLoadingComments || !_hasMoreComments || _currentCommentsGameId == null) return;
+    
+    _commentsPage++;
+    await fetchComments(_currentCommentsGameId!, forceRefresh: false);
+  }
 
-  /// Adds a comment to a game and updates the UI
-  Future<void> addComment(String gameId, String userId, String text) async {
-    _setLoadingComments(true);
+  /// Super-fast comment fetching that shows memory data instantly
+  void fetchCommentsFast(String gameId) {
+    // Switch game context
+    if (_currentCommentsGameId != gameId) {
+      _currentCommentsGameId = gameId;
+      _commentsPage = 0;
+      _hasMoreComments = true;
+    }
+    
+    // Get comments from memory instantly (no await needed)
+    final comments = _socialService.getCommentsFast(gameId);
+    
+    // Remove duplicates and update UI immediately
+    final uniqueComments = <InteractionModel>[];
+    final seenIds = <String>{};
+    for (final comment in comments) {
+      if (!seenIds.contains(comment.id)) {
+        uniqueComments.add(comment);
+        seenIds.add(comment.id);
+      }
+    }
+    
+    // Only notify if comments actually changed
+    if (_currentViewingGameComments.length != uniqueComments.length ||
+        !_listsEqual(_currentViewingGameComments, uniqueComments)) {
+      _currentViewingGameComments = uniqueComments;
+      _hasMoreComments = false; // Memory loads all at once
+      notifyListeners();
+    }
+    
+    print('[GameViewModel] Fast loaded ${uniqueComments.length} comments for game $gameId');
+  }
+
+  /// Adds a comment with ultra-fast in-memory storage
+  Future<void> addCommentFast(String gameId, String userId, String text) async {
+    if (text.trim().isEmpty) return;
+    
     try {
-      final comment = await _socialService.addComment(gameId, userId, text);
+      // Add comment using fast service (instant)
+      final comment = await _socialService.addCommentFast(gameId, userId, text.trim());
+      
       if (comment != null) {
-        // Update comment count for the game
-        final gameIndex = _games.indexWhere((g) => g.id == gameId);
-        if (gameIndex != -1) {
-          _games[gameIndex].commentCount++;
+        // Batch updates to reduce notifications
+        bool shouldNotify = false;
+        
+        // Update UI immediately with the real comment
+        if (_currentCommentsGameId == gameId) {
+          // Check for duplicates before adding
+          final existingIndex = _currentViewingGameComments.indexWhere((c) => c.id == comment.id);
+          if (existingIndex == -1) {
+            _currentViewingGameComments.insert(0, comment);
+            shouldNotify = true;
+          }
         }
         
-        // Refresh comments if currently viewing this game's comments
-        await fetchComments(gameId);
-        print('[GameViewModel] Comment added to game $gameId by user $userId');
+        // Update game comment count
+        final gameIndex = _games.indexWhere((g) => g.id == gameId);
+        if (gameIndex != -1) {
+          final newCount = _socialService.getCommentCountFast(gameId);
+          if (_games[gameIndex].commentCount != newCount) {
+            _games[gameIndex].commentCount = newCount;
+            shouldNotify = true;
+          }
+        }
+        
+        // Single notification for all updates
+        if (shouldNotify) {
+          notifyListeners();
+        }
+        
+        print('[GameViewModel] Fast comment added to game $gameId by user $userId');
       }
     } catch (e) {
-      print('[GameViewModel] Error adding comment: $e');
-    } finally {
-      _setLoadingComments(false);
+      print('[GameViewModel] Error adding fast comment: $e');
     }
+  }
+
+  /// Helper method to compare lists efficiently
+  bool _listsEqual<T>(List<T> list1, List<T> list2) {
+    if (list1.length != list2.length) return false;
+    for (int i = 0; i < list1.length; i++) {
+      if (list1[i] != list2[i]) return false;
+    }
+    return true;
   }
 
   /// Gets user statistics for likes across all games
@@ -296,6 +426,23 @@ class GameViewModel extends ChangeNotifier {
     _gameService.prewarmImageCache().catchError((e) {
       print('[GameViewModel] Error pre-warming cache: $e');
     });
+    
+    // Also preload comments for better performance
+    _preloadCommentsInBackground();
+  }
+  
+  /// Preloads comments for current games in background
+  void _preloadCommentsInBackground() {
+    if (_games.isNotEmpty) {
+      final gameIds = _games.map((game) => game.id).toList();
+      _socialService.preloadComments(gameIds);
+    }
+  }
+  
+  /// Call this when new games are loaded to preload their comments
+  void _preloadNewGameComments(List<GameModel> newGames) {
+    final gameIds = newGames.map((game) => game.id).toList();
+    _socialService.preloadComments(gameIds);
   }
 }
  
