@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Allow all traffic (including cleartext) for debug builds -->
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <!-- Trust the system default CAs -->
+            <certificates src="system"/>
+            <!-- Additionally trust user added CAs -->
+            <certificates src="user"/>
+        </trust-anchors>
+    </base-config>
+    
+    <!-- Specific domain configurations for game sites -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">plays.org</domain>
+        <domain includeSubdomains="true">html5games.com</domain>
+        <domain includeSubdomains="true">poki.com</domain>
+        <domain includeSubdomains="true">crazy-games.com</domain>
+        <domain includeSubdomains="true">games.crazygames.com</domain>
+        <domain includeSubdomains="true">konstrukteam.com</domain>
+        <domain includeSubdomains="true">html5gameworld.com</domain>
+        <domain includeSubdomains="true">kongregate.com</domain>
+        <domain includeSubdomains="true">newgrounds.com</domain>
+        <domain includeSubdomains="true">armorgames.com</domain>
+        <domain includeSubdomains="true">miniclip.com</domain>
+        <domain includeSubdomains="true">y8.com</domain>
+        <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="true">10.0.2.2</domain>
+        <!-- Allow any domain in debug builds -->
+        <trust-anchors>
+            <certificates src="system"/>
+            <certificates src="user"/>
+        </trust-anchors>
+    </domain-config>
+    
+    <!-- Debug configuration: accept all certificates -->
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="system"/>
+            <certificates src="user"/>
+        </trust-anchors>
+    </debug-overrides>
+</network-security-config> 
