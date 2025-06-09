@@ -12,12 +12,27 @@ import 'presentation/screens/game_details_screen.dart';
 import 'services/game_service.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const MyApp());
 }
+
+/* // use Firebase App Check for debugging on Android
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+  await FirebaseAppCheck.instance.activate(
+    //webRecaptchaSiteKey: 'recaptcha-v3-site-key',
+    // Set androidProvider to `AndroidProvider.debug`
+    androidProvider: AndroidProvider.debug,
+  );
+  //print(FirebaseAppCheck.instance.getToken());
+  runApp(const MyApp());
+}
+*/
 
 class MyApp extends StatefulWidget {
   const MyApp({Key? key}) : super(key: key);

@@ -25,7 +25,9 @@ class AuthViewModel extends ChangeNotifier {
     final user = await _authService.tryAutoLogin();
     if (user != null) {
       _currentUser = user;
-      print('[AuthViewModel] Auto-login successful. User: ${_currentUser?.username}');
+      print(
+        '[AuthViewModel] Auto-login successful. User: ${_currentUser?.username}',
+      );
     } else {
       print('[AuthViewModel] Auto-login failed or no saved user.');
     }
@@ -90,7 +92,9 @@ class AuthViewModel extends ChangeNotifier {
     if (response['success']) {
       _currentUser = response['user'];
       _setLoading(false); // Set loading false after state update
-      print('[AuthViewModel] Login success. CurrentUser set to: ${_currentUser?.username} (ID: ${_currentUser?.id})');
+      print(
+        '[AuthViewModel] Login success. CurrentUser set to: ${_currentUser?.username} (ID: ${_currentUser?.id})',
+      );
       notifyListeners();
       return true;
     } else {
@@ -105,10 +109,11 @@ class AuthViewModel extends ChangeNotifier {
   Future<void> logout() async {
     _setLoading(true);
     print('[AuthViewModel] Logging out user: ${_currentUser?.username}');
-    await _authService.logout(); // This now clears SharedPreferences via AuthService
+    await _authService
+        .logout(); // This now clears SharedPreferences via AuthService
     _currentUser = null;
     _setLoading(false);
     print('[AuthViewModel] User logged out. CurrentUser is now: $_currentUser');
     notifyListeners();
   }
-} 
+}
