@@ -4,6 +4,7 @@ class InteractionModel {
   final String id; // Unique ID for the interaction
   final String gameId;
   final String userId;
+  final String username;
   final InteractionType type;
   final String? text; // For comments
   final DateTime timestamp;
@@ -12,17 +13,19 @@ class InteractionModel {
     required this.id,
     required this.gameId,
     required this.userId,
+    required this.username,
     required this.type,
     this.text,
     required this.timestamp,
   });
-  
+
   // Factory constructor to create an InteractionModel from JSON
   factory InteractionModel.fromJson(Map<String, dynamic> json) {
     return InteractionModel(
       id: json['id'] as String,
       gameId: json['gameId'] as String,
       userId: json['userId'] as String,
+      username: json['username'] as String,
       type: InteractionType.values.firstWhere(
         (e) => e.toString() == 'InteractionType.${json['type']}',
         orElse: () => InteractionType.like,

@@ -1,164 +1,340 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../data/models/interaction_model.dart';
-import '../data/models/user_model.dart'; // For userId
-import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../data/models/user_model.dart';
 
 class SocialService {
-  // Mock data stores
-  final List<InteractionModel> _interactions = [];
-  int _interactionIdCounter = 0;
-  
-  // Maps userId to a list of saved game IDs
-  final Map<String, List<String>> _savedGames = {};
-  static const String _savedGamesKey = 'saved_games';
-  bool _prefsLoaded = false;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  SocialService() {
-    _loadSavedGamesFromPrefs();
-  }
+  // Collection references
+  CollectionReference get _usersCollection => _firestore.collection('Users');
+  CollectionReference get _gamesCollection => _firestore.collection('Games');
 
-  Future<void> _loadSavedGamesFromPrefs() async {
-    if (_prefsLoaded) return;
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final String? savedGamesJson = prefs.getString(_savedGamesKey);
-      if (savedGamesJson != null) {
-        final Map<String, dynamic> savedGamesMap = jsonDecode(savedGamesJson);
-        
-        savedGamesMap.forEach((userId, gameIds) {
-          _savedGames[userId] = List<String>.from(gameIds);
-        });
-      }
-      _prefsLoaded = true;
-      print('[SocialService] Loaded saved games from SharedPreferences: $_savedGames');
-    } catch (e) {
-      print('[SocialService] Error loading saved games: $e');
-      // Initialize with empty if error
-      _prefsLoaded = true;
-    }
-  }
-
-  Future<void> _saveSavedGamesToPrefs() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final String savedGamesJson = jsonEncode(_savedGames);
-      await prefs.setString(_savedGamesKey, savedGamesJson);
-      print('[SocialService] Saved games data saved to SharedPreferences');
-    } catch (e) {
-      print('[SocialService] Error saving games data: $e');
-    }
-  }
-
-  Future<void> _ensurePrefsLoaded() async {
-    if (!_prefsLoaded) {
-      await _loadSavedGamesFromPrefs();
-    }
-  }
-
+  // GAME INTERACTIONS (LIKES)
   Future<bool> toggleLikeGame(String gameId, String userId) async {
-    await Future.delayed(const Duration(milliseconds: 300));
-    final existingLikeIndex = _interactions.indexWhere((interaction) =>
-        interaction.gameId == gameId &&
-        interaction.userId == userId &&
-        interaction.type == InteractionType.like);
+    try {
+      // Get user document reference
+      final userRef = _usersCollection.doc(userId);
+      final gameRef = _gamesCollection.doc(gameId);
 
-    if (existingLikeIndex != -1) {
-      _interactions.removeAt(existingLikeIndex);
-      print('[SocialService] Game $gameId unliked by user $userId');
-      return false; // Unliked
-    } else {
-      _interactions.add(InteractionModel(
-        id: (_interactionIdCounter++).toString(),
+      // Check if user already liked the game
+      final userDoc = await userRef.get();
+      final userData = userDoc.data() as Map<String, dynamic>?;
+      final likedGames = List<String>.from(userData?['likedGames'] ?? []);
+
+      // Transaction to ensure atomic updates
+      return await _firestore.runTransaction<bool>((transaction) async {
+        // Get current game data
+        final gameDoc = await transaction.get(gameRef);
+        final gameData = gameDoc.data() as Map<String, dynamic>?;
+
+        if (gameData == null) {
+          // Initialize game document if it doesn't exist
+          transaction.set(gameRef, {
+            'likeCount': 0,
+            'commentCount': 0,
+            'playCount': 0,
+          });
+        }
+
+        final bool isLiked = likedGames.contains(gameId);
+
+        if (isLiked) {
+          // Unlike: Remove gameId from user's likedGames and decrement game's likeCount
+          transaction.update(userRef, {
+            'likedGames': FieldValue.arrayRemove([gameId]),
+            'likeCount': FieldValue.increment(-1),
+          });
+
+          transaction.update(gameRef, {'likeCount': FieldValue.increment(-1)});
+
+          print('[SocialService] Game $gameId unliked by user $userId');
+          return false;
+        } else {
+          // Like: Add gameId to user's likedGames and increment game's likeCount
+          transaction.update(userRef, {
+            'likedGames': FieldValue.arrayUnion([gameId]),
+            'likeCount': FieldValue.increment(1),
+          });
+
+          transaction.update(gameRef, {'likeCount': FieldValue.increment(1)});
+
+          print('[SocialService] Game $gameId liked by user $userId');
+          return true;
+        }
+      });
+    } catch (e) {
+      print('[SocialService] Error toggling game like: $e');
+      return false;
+    }
+  }
+
+  Future<bool> isGameLikedByUser(String gameId, String userId) async {
+    try {
+      final userDoc = await _usersCollection.doc(userId).get();
+      final userData = userDoc.data() as Map<String, dynamic>?;
+      if (userData == null) return false;
+
+      final likedGames = List<String>.from(userData['likedGames'] ?? []);
+      return likedGames.contains(gameId);
+    } catch (e) {
+      print('[SocialService] Error checking if game is liked: $e');
+      return false;
+    }
+  }
+
+  // SAVED GAMES
+  Future<bool> toggleSaveGame(String gameId, String userId) async {
+    try {
+      // Get user document reference
+      final userRef = _usersCollection.doc(userId);
+
+      // Check if user already saved the game
+      final userDoc = await userRef.get();
+      final userData = userDoc.data() as Map<String, dynamic>?;
+      final savedGames = List<String>.from(userData?['savedGames'] ?? []);
+
+      final bool isSaved = savedGames.contains(gameId);
+
+      if (isSaved) {
+        // Unsave: Remove gameId from user's savedGames
+        await userRef.update({
+          'savedGames': FieldValue.arrayRemove([gameId]),
+        });
+
+        print('[SocialService] Game $gameId unsaved by user $userId');
+        return false;
+      } else {
+        // Save: Add gameId to user's savedGames
+        await userRef.update({
+          'savedGames': FieldValue.arrayUnion([gameId]),
+        });
+
+        print('[SocialService] Game $gameId saved by user $userId');
+        return true;
+      }
+    } catch (e) {
+      print('[SocialService] Error toggling game save: $e');
+      return false;
+    }
+  }
+
+  Future<bool> isGameSavedByUser(String gameId, String userId) async {
+    try {
+      final userDoc = await _usersCollection.doc(userId).get();
+      final userData = userDoc.data() as Map<String, dynamic>?;
+      if (userData == null) return false;
+
+      final savedGames = List<String>.from(userData['savedGames'] ?? []);
+      return savedGames.contains(gameId);
+    } catch (e) {
+      print('[SocialService] Error checking if game is saved: $e');
+      return false;
+    }
+  }
+
+  Future<List<String>> getSavedGameIds(String userId) async {
+    try {
+      final userDoc = await _usersCollection.doc(userId).get();
+      final userData = userDoc.data() as Map<String, dynamic>?;
+      if (userData == null) return [];
+
+      return List<String>.from(userData['savedGames'] ?? []);
+    } catch (e) {
+      print('[SocialService] Error getting saved games: $e');
+      return [];
+    }
+  }
+
+  // COMMENTS
+  Future<InteractionModel?> addComment(
+    String gameId,
+    String userId,
+    String text,
+  ) async {
+    try {
+      if (text.isEmpty || text.length > 200) {
+        print(
+          '[SocialService] Comment validation failed for game $gameId by user $userId',
+        );
+        return null;
+      }
+
+      // Get user data to include username
+      final userDoc = await _usersCollection.doc(userId).get();
+      final userData = userDoc.data() as Map<String, dynamic>?;
+      if (userData == null) return null;
+
+      final username = userData['username'] as String;
+
+      // Get references
+      final gameRef = _gamesCollection.doc(gameId);
+      final commentsRef = gameRef.collection('comments');
+
+      // Create new comment document
+      final timestamp = FieldValue.serverTimestamp();
+      final commentRef = await commentsRef.add({
+        'userId': userId,
+        'username': username,
+        'text': text,
+        'timestamp': timestamp,
+      });
+
+      // Update user's comment count
+      await _usersCollection.doc(userId).update({
+        'commentCount': FieldValue.increment(1),
+      });
+
+      // Update game's comment count
+      await gameRef.update({'commentCount': FieldValue.increment(1)});
+
+      // Get the created comment to return
+      final commentDoc = await commentRef.get();
+      final commentData = commentDoc.data() as Map<String, dynamic>;
+
+      // Create and return InteractionModel
+      return InteractionModel(
+        id: commentRef.id,
         gameId: gameId,
         userId: userId,
-        type: InteractionType.like,
-        timestamp: DateTime.now(),
-      ));
-      print('[SocialService] Game $gameId liked by user $userId');
-      return true; // Liked
+        username: username,
+        text: text,
+        type: InteractionType.comment,
+        timestamp:
+            (commentData['timestamp'] as Timestamp?)?.toDate() ??
+            DateTime.now(),
+      );
+    } catch (e) {
+      print('[SocialService] Error adding comment: $e');
+      return null;
     }
   }
 
-  Future<bool> toggleSaveGame(String gameId, String userId) async {
-    await _ensurePrefsLoaded();
-    await Future.delayed(const Duration(milliseconds: 300));
-    
-    // Initialize the user's saved games list if it doesn't exist
-    _savedGames.putIfAbsent(userId, () => []);
-    
-    final userSavedGames = _savedGames[userId]!;
-    final isSaved = userSavedGames.contains(gameId);
-    
-    if (isSaved) {
-      // Unsave the game
-      userSavedGames.remove(gameId);
-      print('[SocialService] Game $gameId unsaved by user $userId');
-      await _saveSavedGamesToPrefs();
-      return false; // Unsaved
-    } else {
-      // Save the game
-      userSavedGames.add(gameId);
-      print('[SocialService] Game $gameId saved by user $userId');
-      await _saveSavedGamesToPrefs();
-      return true; // Saved
+  Future<List<InteractionModel>> getCommentsForGame(String gameId) async {
+    try {
+      final commentsSnapshot =
+          await _gamesCollection
+              .doc(gameId)
+              .collection('comments')
+              .orderBy('timestamp', descending: true)
+              .get();
+
+      return commentsSnapshot.docs.map((doc) {
+        final data = doc.data();
+        return InteractionModel(
+          id: doc.id,
+          gameId: gameId,
+          userId: data['userId'],
+          username: data['username'],
+          text: data['text'],
+          type: InteractionType.comment,
+          timestamp:
+              (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        );
+      }).toList();
+    } catch (e) {
+      print('[SocialService] Error getting comments for game: $e');
+      return [];
     }
   }
 
-  bool isGameSavedByUser(String gameId, String userId) {
-    return _savedGames[userId]?.contains(gameId) ?? false;
-  }
-
-  List<String> getSavedGameIds(String userId) {
-    return _savedGames[userId] ?? [];
-  }
-
-  Future<InteractionModel?> addComment(String gameId, String userId, String text) async {
-    await Future.delayed(const Duration(milliseconds: 500));
-    if (text.isEmpty || text.length > 200) {
-      print('[SocialService] Comment validation failed for game $gameId by user $userId');
-      return null; // Or throw an error
+  // GAME STATISTICS
+  Future<void> incrementGamePlayCount(String gameId) async {
+    try {
+      await _gamesCollection.doc(gameId).update({
+        'playCount': FieldValue.increment(1),
+      });
+    } catch (e) {
+      print('[SocialService] Error incrementing game play count: $e');
     }
-    final newComment = InteractionModel(
-      id: (_interactionIdCounter++).toString(),
-      gameId: gameId,
-      userId: userId,
-      type: InteractionType.comment,
-      text: text,
-      timestamp: DateTime.now(),
-    );
-    _interactions.add(newComment);
-    print('[SocialService] Comment added to game $gameId by user $userId: "$text"');
-    return newComment;
   }
 
+  Future<Map<String, dynamic>> getGameStats(String gameId) async {
+    try {
+      final gameDoc = await _gamesCollection.doc(gameId).get();
+      final gameData = gameDoc.data() as Map<String, dynamic>?;
+
+      if (gameData == null) {
+        return {'likeCount': 0, 'commentCount': 0, 'playCount': 0};
+      }
+
+      return {
+        'likeCount': gameData['likeCount'] ?? 0,
+        'commentCount': gameData['commentCount'] ?? 0,
+        'playCount': gameData['playCount'] ?? 0,
+      };
+    } catch (e) {
+      print('[SocialService] Error getting game stats: $e');
+      return {'likeCount': 0, 'commentCount': 0, 'playCount': 0};
+    }
+  }
+
+  // USER STATISTICS
+  Future<Map<String, dynamic>> getUserStats(String userId) async {
+    try {
+      final userDoc = await _usersCollection.doc(userId).get();
+      final userData = userDoc.data() as Map<String, dynamic>?;
+
+      if (userData == null) {
+        return {'likeCount': 0, 'commentCount': 0, 'savedGamesCount': 0};
+      }
+
+      final savedGames = List<String>.from(userData['savedGames'] ?? []);
+
+      return {
+        'likeCount': userData['likeCount'] ?? 0,
+        'commentCount': userData['commentCount'] ?? 0,
+        'savedGamesCount': savedGames.length,
+      };
+    } catch (e) {
+      print('[SocialService] Error getting user stats: $e');
+      return {'likeCount': 0, 'commentCount': 0, 'savedGamesCount': 0};
+    }
+  }
+
+  // Get like count for a game
+  Future<int> getLikeCount(String gameId) async {
+    try {
+      final gameDoc = await _gamesCollection.doc(gameId).get();
+      final gameData = gameDoc.data() as Map<String, dynamic>?;
+      if (gameData == null) return 0;
+
+      return gameData['likeCount'] ?? 0;
+    } catch (e) {
+      print('[SocialService] Error getting like count for game $gameId: $e');
+      return 0;
+    }
+  }
+
+  // Get comments for a game (alias for getCommentsForGame to maintain compatibility)
   Future<List<InteractionModel>> getComments(String gameId) async {
-    await Future.delayed(const Duration(milliseconds: 200));
-    final gameComments = _interactions
-        .where((i) => i.gameId == gameId && i.type == InteractionType.comment)
-        .toList();
-    // Sort by timestamp, newest first or oldest first as desired
-    gameComments.sort((a, b) => b.timestamp.compareTo(a.timestamp)); 
-    print('[SocialService] Fetched ${gameComments.length} comments for game $gameId');
-    return gameComments;
+    return getCommentsForGame(gameId);
   }
 
-  int getLikeCount(String gameId) {
-    // This is a simplified local count. In a real app, the backend would provide this.
-    return _interactions.where((i) => i.gameId == gameId && i.type == InteractionType.like).length;
+  // Get number of likes made by a user
+  Future<int> getUserLikeCount(String userId) async {
+    try {
+      final userDoc = await _usersCollection.doc(userId).get();
+      final userData = userDoc.data() as Map<String, dynamic>?;
+      if (userData == null) return 0;
+
+      return userData['likeCount'] ?? 0;
+    } catch (e) {
+      print('[SocialService] Error getting like count for user $userId: $e');
+      return 0;
+    }
   }
 
-  // Get the number of likes made by a user
-  int getUserLikeCount(String userId) {
-    return _interactions.where((i) => 
-      i.userId == userId && i.type == InteractionType.like
-    ).length;
-  }
-  
-  // Get the number of comments made by a user
-  int getUserCommentCount(String userId) {
-    return _interactions.where((i) => 
-      i.userId == userId && i.type == InteractionType.comment
-    ).length;
+  // Get number of comments made by a user
+  Future<int> getUserCommentCount(String userId) async {
+    try {
+      final userDoc = await _usersCollection.doc(userId).get();
+      final userData = userDoc.data() as Map<String, dynamic>?;
+      if (userData == null) return 0;
+
+      return userData['commentCount'] ?? 0;
+    } catch (e) {
+      print('[SocialService] Error getting comment count for user $userId: $e');
+      return 0;
+    }
   }
 }
- 

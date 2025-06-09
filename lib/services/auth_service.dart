@@ -57,6 +57,10 @@ class AuthService {
         'username': username,
         'email': email,
         'createdAt': FieldValue.serverTimestamp(),
+        'likedGames': [],
+        'savedGames': [],
+        'likeCount': 0,
+        'commentCount': 0,
       });
 
       // Create and return user model

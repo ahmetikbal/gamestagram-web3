@@ -24,10 +24,13 @@ class _CommentPanelWidgetState extends State<CommentPanelWidget> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<GameViewModel>(context, listen: false).fetchCommentsForGame(widget.game.id);
+      Provider.of<GameViewModel>(
+        context,
+        listen: false,
+      ).fetchCommentsForGame(widget.game.id);
     });
   }
-  
+
   @override
   void dispose() {
     _commentController.dispose();
@@ -42,18 +45,24 @@ class _CommentPanelWidgetState extends State<CommentPanelWidget> {
     final currentUser = authViewModel.currentUser;
 
     if (currentUser == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please login to comment')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please login to comment')));
       return;
     }
 
     setState(() => _isPostingComment = true);
-    final success = await gameViewModel.addCommentToGame(widget.game.id, currentUser.id, _commentController.text.trim());
+    final success = await gameViewModel.addCommentToGame(
+      widget.game.id,
+      currentUser.id,
+      _commentController.text.trim(),
+    );
     setState(() => _isPostingComment = false);
 
     if (success) {
       _commentController.clear();
       FocusScope.of(context).unfocus();
-      
+
       // Scroll to top to see new comment
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
@@ -63,40 +72,53 @@ class _CommentPanelWidgetState extends State<CommentPanelWidget> {
         );
       }
     } else {
-      if(mounted){
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to post comment. Please try again.')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to post comment. Please try again.'),
+          ),
+        );
       }
     }
   }
 
   Widget _buildCommentBubble(InteractionModel comment, ThemeData theme) {
-    final bool isCurrentUser = Provider.of<AuthViewModel>(context, listen: false).currentUser?.id == comment.userId;
-    
+    final bool isCurrentUser =
+        Provider.of<AuthViewModel>(context, listen: false).currentUser?.id ==
+        comment.userId;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: isCurrentUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment:
+            isCurrentUser ? MainAxisAlignment.end : MainAxisAlignment.start,
         children: [
-          if (!isCurrentUser) 
+          if (!isCurrentUser)
             CircleAvatar(
               radius: 18,
               backgroundColor: theme.colorScheme.primary,
               child: Text(
-                comment.userId.isNotEmpty ? comment.userId[0].toUpperCase() : 'U',
-                style: TextStyle(color: theme.colorScheme.onPrimary, fontWeight: FontWeight.bold),
+                comment.username.isNotEmpty
+                    ? comment.username[0].toUpperCase()
+                    : 'U',
+                style: TextStyle(
+                  color: theme.colorScheme.onPrimary,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
-          
+
           if (!isCurrentUser) const SizedBox(width: 10),
-          
+
           Flexible(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: isCurrentUser 
-                    ? theme.colorScheme.primary.withOpacity(0.85)
-                    : theme.colorScheme.surface.withOpacity(0.7),
+                color:
+                    isCurrentUser
+                        ? theme.colorScheme.primary.withOpacity(0.85)
+                        : theme.colorScheme.surface.withOpacity(0.7),
                 borderRadius: BorderRadius.circular(18),
                 boxShadow: [
                   BoxShadow(
@@ -114,12 +136,13 @@ class _CommentPanelWidgetState extends State<CommentPanelWidget> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'User ${comment.userId}',
+                        comment.username,
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: isCurrentUser 
-                              ? theme.colorScheme.onPrimary 
-                              : theme.colorScheme.onSurface,
+                          color:
+                              isCurrentUser
+                                  ? theme.colorScheme.onPrimary
+                                  : theme.colorScheme.onSurface,
                           fontSize: 13,
                         ),
                       ),
@@ -128,23 +151,27 @@ class _CommentPanelWidgetState extends State<CommentPanelWidget> {
                         '• ${_formatTimestamp(comment.timestamp)}',
                         style: TextStyle(
                           fontSize: 11,
-                          color: isCurrentUser 
-                              ? theme.colorScheme.onPrimary.withOpacity(0.7) 
-                              : theme.colorScheme.onSurface.withOpacity(0.7),
+                          color:
+                              isCurrentUser
+                                  ? theme.colorScheme.onPrimary.withOpacity(0.7)
+                                  : theme.colorScheme.onSurface.withOpacity(
+                                    0.7,
+                                  ),
                         ),
                       ),
                     ],
                   ),
-                  
+
                   const SizedBox(height: 4),
-                  
+
                   // Comment text
                   Text(
                     comment.text ?? '',
                     style: TextStyle(
-                      color: isCurrentUser 
-                          ? theme.colorScheme.onPrimary 
-                          : theme.colorScheme.onSurface,
+                      color:
+                          isCurrentUser
+                              ? theme.colorScheme.onPrimary
+                              : theme.colorScheme.onSurface,
                       fontSize: 15,
                     ),
                   ),
@@ -152,27 +179,32 @@ class _CommentPanelWidgetState extends State<CommentPanelWidget> {
               ),
             ),
           ),
-          
+
           if (isCurrentUser) const SizedBox(width: 10),
-          
+
           if (isCurrentUser)
             CircleAvatar(
               radius: 18,
               backgroundColor: theme.colorScheme.primary,
               child: Text(
-                comment.userId.isNotEmpty ? comment.userId[0].toUpperCase() : 'U',
-                style: TextStyle(color: theme.colorScheme.onPrimary, fontWeight: FontWeight.bold),
+                comment.userId.isNotEmpty
+                    ? comment.userId[0].toUpperCase()
+                    : 'U',
+                style: TextStyle(
+                  color: theme.colorScheme.onPrimary,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
         ],
       ),
     );
   }
-  
+
   String _formatTimestamp(DateTime timestamp) {
     final now = DateTime.now();
     final difference = now.difference(timestamp);
-    
+
     if (difference.inDays > 365) {
       return '${(difference.inDays / 365).floor()}y ago';
     } else if (difference.inDays > 30) {
@@ -240,7 +272,7 @@ class _CommentPanelWidgetState extends State<CommentPanelWidget> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-                
+
                 // Header
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
@@ -281,9 +313,9 @@ class _CommentPanelWidgetState extends State<CommentPanelWidget> {
                     ],
                   ),
                 ),
-                
+
                 Divider(color: onSurfaceColor.withOpacity(0.1), thickness: 1),
-                
+
                 // Comments list
                 Expanded(
                   child: Consumer<GameViewModel>(
@@ -293,17 +325,21 @@ class _CommentPanelWidgetState extends State<CommentPanelWidget> {
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              CircularProgressIndicator(color: primaryAccentColor),
+                              CircularProgressIndicator(
+                                color: primaryAccentColor,
+                              ),
                               const SizedBox(height: 16),
                               Text(
                                 'Loading comments...',
-                                style: TextStyle(color: onSurfaceColor.withOpacity(0.7)),
+                                style: TextStyle(
+                                  color: onSurfaceColor.withOpacity(0.7),
+                                ),
                               ),
                             ],
                           ),
                         );
                       }
-                      
+
                       if (gvm.currentViewingGameComments.isEmpty) {
                         return Center(
                           child: Column(
@@ -332,7 +368,7 @@ class _CommentPanelWidgetState extends State<CommentPanelWidget> {
                           ),
                         );
                       }
-                      
+
                       return ListView.builder(
                         controller: _scrollController,
                         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -346,11 +382,14 @@ class _CommentPanelWidgetState extends State<CommentPanelWidget> {
                     },
                   ),
                 ),
-                
+
                 // Comment input field
                 Container(
                   margin: const EdgeInsets.all(16),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: theme.colorScheme.surface.withOpacity(0.7),
                     borderRadius: BorderRadius.circular(24),
@@ -366,7 +405,9 @@ class _CommentPanelWidgetState extends State<CommentPanelWidget> {
                     children: [
                       CircleAvatar(
                         radius: 18,
-                        backgroundColor: theme.colorScheme.primary.withOpacity(0.8),
+                        backgroundColor: theme.colorScheme.primary.withOpacity(
+                          0.8,
+                        ),
                         child: Icon(
                           Icons.person,
                           color: theme.colorScheme.onPrimary,
@@ -380,18 +421,21 @@ class _CommentPanelWidgetState extends State<CommentPanelWidget> {
                           style: TextStyle(color: onSurfaceColor),
                           decoration: InputDecoration(
                             hintText: 'Add a comment...',
-                            hintStyle: TextStyle(color: onSurfaceColor.withOpacity(0.5)),
+                            hintStyle: TextStyle(
+                              color: onSurfaceColor.withOpacity(0.5),
+                            ),
                             border: InputBorder.none,
                             counterText: '',
                           ),
                           textInputAction: TextInputAction.send,
-                          onSubmitted: _isPostingComment ? null : (_) => _postComment(),
+                          onSubmitted:
+                              _isPostingComment ? null : (_) => _postComment(),
                           maxLength: 200,
                         ),
                       ),
                       const SizedBox(width: 8),
-                      _isPostingComment 
-                        ? SizedBox(
+                      _isPostingComment
+                          ? SizedBox(
                             width: 24,
                             height: 24,
                             child: CircularProgressIndicator(
@@ -399,7 +443,7 @@ class _CommentPanelWidgetState extends State<CommentPanelWidget> {
                               strokeWidth: 2,
                             ),
                           )
-                        : Material(
+                          : Material(
                             color: primaryAccentColor,
                             borderRadius: BorderRadius.circular(20),
                             child: InkWell(
@@ -426,4 +470,3 @@ class _CommentPanelWidgetState extends State<CommentPanelWidget> {
     );
   }
 }
- 

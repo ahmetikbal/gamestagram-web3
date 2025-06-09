@@ -16,7 +16,8 @@ class GameDetailsScreen extends StatefulWidget {
   State<GameDetailsScreen> createState() => _GameDetailsScreenState();
 }
 
-class _GameDetailsScreenState extends State<GameDetailsScreen> with SingleTickerProviderStateMixin {
+class _GameDetailsScreenState extends State<GameDetailsScreen>
+    with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _headerAnimation;
   late Animation<double> _contentAnimation;
@@ -24,22 +25,28 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> with SingleTicker
   @override
   void initState() {
     super.initState();
-    
+
     // Animation setup
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 500),
       vsync: this,
     );
-    
+
     _headerAnimation = CurvedAnimation(
       parent: _animationController,
       curve: Curves.easeOut,
     );
-    
+
     _contentAnimation = CurvedAnimation(
       parent: _animationController,
       curve: Curves.easeInOut,
     );
+
+    // Load fresh game stats from Firestore Database when viewing details
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final gameViewModel = Provider.of<GameViewModel>(context, listen: false);
+      gameViewModel.loadGameStats(widget.game);
+    });
 
     // Start the animation after a short delay
     Future.delayed(const Duration(milliseconds: 100), () {
@@ -55,7 +62,8 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> with SingleTicker
 
   void _shareGame() {
     final String gameDeepLink = 'gamestagram://game/${widget.game.id}';
-    final String message = 'Check out this game: ${widget.game.title}\n$gameDeepLink';
+    final String message =
+        'Check out this game: ${widget.game.title}\n$gameDeepLink';
     Share.share(message);
   }
 
@@ -63,11 +71,12 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> with SingleTicker
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => GameWebViewScreen(
-          gameId: widget.game.id,
-          gameUrl: widget.game.gameUrl!,
-          gameTitle: widget.game.title,
-        ),
+        builder:
+            (context) => GameWebViewScreen(
+              gameId: widget.game.id,
+              gameUrl: widget.game.gameUrl!,
+              gameTitle: widget.game.title,
+            ),
       ),
     );
   }
@@ -98,18 +107,20 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> with SingleTicker
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final size = MediaQuery.of(context).size;
-    
+
     final gameViewModel = Provider.of<GameViewModel>(context);
     final authViewModel = Provider.of<AuthViewModel>(context);
     final currentUser = authViewModel.currentUser;
-    
-    final bool isSaved = currentUser != null 
-        ? gameViewModel.isGameSavedByUser(widget.game.id, currentUser.id) 
-        : false;
-    
-    final bool isLiked = currentUser != null 
-        ? gameViewModel.isGameLikedByUser(widget.game.id, currentUser.id) 
-        : false;
+
+    final bool isSaved =
+        currentUser != null
+            ? gameViewModel.isGameSavedByUser(widget.game.id, currentUser.id)
+            : false;
+
+    final bool isLiked =
+        currentUser != null
+            ? gameViewModel.isGameLikedByUser(widget.game.id, currentUser.id)
+            : false;
 
     return Scaffold(
       backgroundColor: theme.colorScheme.background,
@@ -148,75 +159,78 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> with SingleTicker
         children: [
           // Background image with gradient overlay
           SizedBox.expand(
-            child: widget.game.imageUrl != null && widget.game.imageUrl!.isNotEmpty
-                ? Stack(
-                    children: [
-                      // Game image
-                      Image.network(
-                        widget.game.imageUrl!,
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        height: double.infinity,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  theme.colorScheme.primary.withOpacity(0.7),
-                                  theme.colorScheme.secondary.withOpacity(0.7),
-                                ],
+            child:
+                widget.game.imageUrl != null && widget.game.imageUrl!.isNotEmpty
+                    ? Stack(
+                      children: [
+                        // Game image
+                        Image.network(
+                          widget.game.imageUrl!,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          height: double.infinity,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    theme.colorScheme.primary.withOpacity(0.7),
+                                    theme.colorScheme.secondary.withOpacity(
+                                      0.7,
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                            child: Center(
-                              child: Icon(
-                                Icons.videogame_asset,
-                                size: 80,
-                                color: Colors.white.withOpacity(0.3),
+                              child: Center(
+                                child: Icon(
+                                  Icons.videogame_asset,
+                                  size: 80,
+                                  color: Colors.white.withOpacity(0.3),
+                                ),
                               ),
+                            );
+                          },
+                        ),
+                        // Gradient overlay
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.black.withOpacity(0.1),
+                                Colors.black.withOpacity(0.7),
+                                Colors.black.withOpacity(0.9),
+                              ],
                             ),
-                          );
-                        },
-                      ),
-                      // Gradient overlay
-                      Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.black.withOpacity(0.1),
-                              Colors.black.withOpacity(0.7),
-                              Colors.black.withOpacity(0.9),
-                            ],
                           ),
                         ),
+                      ],
+                    )
+                    : Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            theme.colorScheme.primary.withOpacity(0.7),
+                            theme.colorScheme.secondary.withOpacity(0.7),
+                            theme.colorScheme.background,
+                          ],
+                        ),
                       ),
-                    ],
-                  )
-                : Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          theme.colorScheme.primary.withOpacity(0.7),
-                          theme.colorScheme.secondary.withOpacity(0.7),
-                          theme.colorScheme.background,
-                        ],
+                      child: Center(
+                        child: Icon(
+                          Icons.videogame_asset,
+                          size: 80,
+                          color: Colors.white.withOpacity(0.3),
+                        ),
                       ),
                     ),
-                    child: Center(
-                      child: Icon(
-                        Icons.videogame_asset,
-                        size: 80,
-                        color: Colors.white.withOpacity(0.3),
-                      ),
-                    ),
-                  ),
           ),
-          
+
           // Content
           SafeArea(
             child: SingleChildScrollView(
@@ -226,7 +240,7 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> with SingleTicker
                 children: [
                   // Top spacer
                   SizedBox(height: size.height * 0.25),
-                  
+
                   // Game info section with animation
                   FadeTransition(
                     opacity: _headerAnimation,
@@ -255,9 +269,9 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> with SingleTicker
                                 ],
                               ),
                             ),
-                            
+
                             const SizedBox(height: 16),
-                            
+
                             // Ratings and metrics
                             Wrap(
                               spacing: 8,
@@ -265,7 +279,10 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> with SingleTicker
                               children: [
                                 // Like count with heart icon
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Colors.white.withOpacity(0.15),
                                     borderRadius: BorderRadius.circular(16),
@@ -289,10 +306,13 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> with SingleTicker
                                     ],
                                   ),
                                 ),
-                                
+
                                 // Comment count with chat icon
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Colors.white.withOpacity(0.15),
                                     borderRadius: BorderRadius.circular(16),
@@ -316,10 +336,13 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> with SingleTicker
                                     ],
                                   ),
                                 ),
-                                
+
                                 // Playable badge
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
                                   decoration: BoxDecoration(
                                     gradient: LinearGradient(
                                       colors: [
@@ -352,11 +375,14 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> with SingleTicker
                                     ],
                                   ),
                                 ),
-                                
+
                                 // Genre badge (if available)
                                 if (widget.game.genre != null)
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: Colors.white.withOpacity(0.15),
                                       borderRadius: BorderRadius.circular(16),
@@ -388,9 +414,9 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> with SingleTicker
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // Game description and details
                   FadeTransition(
                     opacity: _contentAnimation,
@@ -423,21 +449,22 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> with SingleTicker
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            
+
                             const SizedBox(height: 16),
-                            
+
                             // Game description without expand/collapse
                             Container(
                               child: Text(
                                 widget.game.description,
                                 style: theme.textTheme.bodyLarge?.copyWith(
-                                  color: theme.colorScheme.onSurface.withOpacity(0.8),
+                                  color: theme.colorScheme.onSurface
+                                      .withOpacity(0.8),
                                 ),
                               ),
                             ),
-                            
+
                             const SizedBox(height: 24),
-                            
+
                             // Interaction buttons row
                             Row(
                               children: [
@@ -447,47 +474,69 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> with SingleTicker
                                     onTap: () {
                                       if (currentUser != null) {
                                         gameViewModel.toggleLikeGame(
-                                          widget.game.id, 
-                                          currentUser.id
+                                          widget.game.id,
+                                          currentUser.id,
                                         );
                                       } else {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Please login to like games')),
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'Please login to like games',
+                                            ),
+                                          ),
                                         );
                                       }
                                     },
                                     child: AnimatedContainer(
-                                      duration: const Duration(milliseconds: 300),
-                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                      duration: const Duration(
+                                        milliseconds: 300,
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
                                       decoration: BoxDecoration(
-                                        color: isLiked 
-                                            ? theme.colorScheme.primary.withOpacity(0.2) 
-                                            : Colors.transparent,
+                                        color:
+                                            isLiked
+                                                ? theme.colorScheme.primary
+                                                    .withOpacity(0.2)
+                                                : Colors.transparent,
                                         borderRadius: BorderRadius.circular(12),
                                         border: Border.all(
-                                          color: isLiked 
-                                              ? theme.colorScheme.primary 
-                                              : theme.colorScheme.onSurface.withOpacity(0.2),
+                                          color:
+                                              isLiked
+                                                  ? theme.colorScheme.primary
+                                                  : theme.colorScheme.onSurface
+                                                      .withOpacity(0.2),
                                           width: 1,
                                         ),
                                       ),
                                       child: Column(
                                         children: [
                                           Icon(
-                                            isLiked 
-                                                ? Icons.favorite 
+                                            isLiked
+                                                ? Icons.favorite
                                                 : Icons.favorite_border,
-                                            color: isLiked 
-                                                ? Colors.red 
-                                                : theme.colorScheme.onSurface,
+                                            color:
+                                                isLiked
+                                                    ? Colors.red
+                                                    : theme
+                                                        .colorScheme
+                                                        .onSurface,
                                           ),
                                           const SizedBox(height: 4),
                                           Text(
                                             'Like',
                                             style: TextStyle(
-                                              color: isLiked 
-                                                  ? theme.colorScheme.primary 
-                                                  : theme.colorScheme.onSurface,
+                                              color:
+                                                  isLiked
+                                                      ? theme
+                                                          .colorScheme
+                                                          .primary
+                                                      : theme
+                                                          .colorScheme
+                                                          .onSurface,
                                               fontWeight: FontWeight.bold,
                                             ),
                                           ),
@@ -496,56 +545,78 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> with SingleTicker
                                     ),
                                   ),
                                 ),
-                                
+
                                 const SizedBox(width: 12),
-                                
+
                                 // Save button
                                 Expanded(
                                   child: GestureDetector(
                                     onTap: () {
                                       if (currentUser != null) {
                                         gameViewModel.toggleSaveGame(
-                                          widget.game.id, 
-                                          currentUser.id
+                                          widget.game.id,
+                                          currentUser.id,
                                         );
                                       } else {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Please login to save games')),
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'Please login to save games',
+                                            ),
+                                          ),
                                         );
                                       }
                                     },
                                     child: AnimatedContainer(
-                                      duration: const Duration(milliseconds: 300),
-                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                      duration: const Duration(
+                                        milliseconds: 300,
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
                                       decoration: BoxDecoration(
-                                        color: isSaved 
-                                            ? theme.colorScheme.primary.withOpacity(0.2) 
-                                            : Colors.transparent,
+                                        color:
+                                            isSaved
+                                                ? theme.colorScheme.primary
+                                                    .withOpacity(0.2)
+                                                : Colors.transparent,
                                         borderRadius: BorderRadius.circular(12),
                                         border: Border.all(
-                                          color: isSaved 
-                                              ? theme.colorScheme.primary 
-                                              : theme.colorScheme.onSurface.withOpacity(0.2),
+                                          color:
+                                              isSaved
+                                                  ? theme.colorScheme.primary
+                                                  : theme.colorScheme.onSurface
+                                                      .withOpacity(0.2),
                                           width: 1,
                                         ),
                                       ),
                                       child: Column(
                                         children: [
                                           Icon(
-                                            isSaved 
-                                                ? Icons.bookmark 
+                                            isSaved
+                                                ? Icons.bookmark
                                                 : Icons.bookmark_border,
-                                            color: isSaved 
-                                                ? theme.colorScheme.primary 
-                                                : theme.colorScheme.onSurface,
+                                            color:
+                                                isSaved
+                                                    ? theme.colorScheme.primary
+                                                    : theme
+                                                        .colorScheme
+                                                        .onSurface,
                                           ),
                                           const SizedBox(height: 4),
                                           Text(
                                             'Save',
                                             style: TextStyle(
-                                              color: isSaved 
-                                                  ? theme.colorScheme.primary 
-                                                  : theme.colorScheme.onSurface,
+                                              color:
+                                                  isSaved
+                                                      ? theme
+                                                          .colorScheme
+                                                          .primary
+                                                      : theme
+                                                          .colorScheme
+                                                          .onSurface,
                                               fontWeight: FontWeight.bold,
                                             ),
                                           ),
@@ -554,20 +625,23 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> with SingleTicker
                                     ),
                                   ),
                                 ),
-                                
+
                                 const SizedBox(width: 12),
-                                
+
                                 // Share button
                                 Expanded(
                                   child: GestureDetector(
                                     onTap: _shareGame,
                                     child: Container(
-                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
                                       decoration: BoxDecoration(
                                         color: Colors.transparent,
                                         borderRadius: BorderRadius.circular(12),
                                         border: Border.all(
-                                          color: theme.colorScheme.onSurface.withOpacity(0.2),
+                                          color: theme.colorScheme.onSurface
+                                              .withOpacity(0.2),
                                           width: 1,
                                         ),
                                       ),
@@ -581,7 +655,8 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> with SingleTicker
                                           Text(
                                             'Share',
                                             style: TextStyle(
-                                              color: theme.colorScheme.onSurface,
+                                              color:
+                                                  theme.colorScheme.onSurface,
                                               fontWeight: FontWeight.bold,
                                             ),
                                           ),
@@ -592,22 +667,30 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> with SingleTicker
                                 ),
                               ],
                             ),
-                            
+
                             const SizedBox(height: 24),
-                            
+
                             // Play button
                             SizedBox(
                               width: double.infinity,
                               child: Padding(
-                                padding: const EdgeInsets.only(top: 16, bottom: 40),
+                                padding: const EdgeInsets.only(
+                                  top: 16,
+                                  bottom: 40,
+                                ),
                                 child: ElevatedButton(
-                                  onPressed: widget.game.gameUrl != null && widget.game.gameUrl!.isNotEmpty 
-                                      ? _playGame 
-                                      : null,
+                                  onPressed:
+                                      widget.game.gameUrl != null &&
+                                              widget.game.gameUrl!.isNotEmpty
+                                          ? _playGame
+                                          : null,
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: theme.colorScheme.primary,
-                                    foregroundColor: theme.colorScheme.onPrimary,
-                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    foregroundColor:
+                                        theme.colorScheme.onPrimary,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 16,
+                                    ),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(16),
                                     ),
@@ -620,11 +703,13 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> with SingleTicker
                                       const SizedBox(width: 8),
                                       Text(
                                         'PLAY NOW',
-                                        style: theme.textTheme.titleMedium?.copyWith(
-                                          color: theme.colorScheme.onPrimary,
-                                          fontWeight: FontWeight.bold,
-                                          letterSpacing: 1,
-                                        ),
+                                        style: theme.textTheme.titleMedium
+                                            ?.copyWith(
+                                              color:
+                                                  theme.colorScheme.onPrimary,
+                                              fontWeight: FontWeight.bold,
+                                              letterSpacing: 1,
+                                            ),
                                       ),
                                     ],
                                   ),
@@ -644,4 +729,4 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> with SingleTicker
       ),
     );
   }
-} 
+}

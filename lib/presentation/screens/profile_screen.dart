@@ -20,7 +20,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
       final gameViewModel = Provider.of<GameViewModel>(context, listen: false);
       if (authViewModel.currentUser != null) {
+        // Load saved games
         gameViewModel.fetchSavedGames(authViewModel.currentUser!.id);
+
+        // Load user stats for profile display
+        gameViewModel.loadUserStats(authViewModel.currentUser!.id);
       }
     });
   }
@@ -39,7 +43,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         body: const Center(child: Text('User not logged in.')),
       );
     }
-    
+
     // Get accurate like and comment counts
     final userLikeCount = gameViewModel.getUserLikeCount(user.id);
     final userCommentCount = gameViewModel.getUserCommentCount(user.id);
@@ -72,19 +76,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 16),
             Text(
               user.username,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
               user.email, // Displaying email, bio can be added later
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey[600]),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(color: Colors.grey[600]),
             ),
             const SizedBox(height: 24),
             const Divider(),
             const SizedBox(height: 16),
-            _buildStatItem(context, 'Games Saved', savedGames.length.toString()),
+            _buildStatItem(
+              context,
+              'Games Saved',
+              savedGames.length.toString(),
+            ),
             _buildStatItem(context, 'Games Liked', userLikeCount.toString()),
-            _buildStatItem(context, 'Comments Made', userCommentCount.toString()),
+            _buildStatItem(
+              context,
+              'Comments Made',
+              userCommentCount.toString(),
+            ),
             const SizedBox(height: 16),
             const Divider(),
             const SizedBox(height: 16),
@@ -95,21 +111,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 16),
             // List of saved games
             savedGames.isEmpty
-                ? const Text('No saved games yet.', style: TextStyle(color: Colors.grey))
+                ? const Text(
+                  'No saved games yet.',
+                  style: TextStyle(color: Colors.grey),
+                )
                 : GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 10,
-                      mainAxisSpacing: 10,
-                      childAspectRatio: 1.0,
-                    ),
-                    itemCount: savedGames.length,
-                    itemBuilder: (context, index) {
-                      return _buildSavedGameCard(context, savedGames[index]);
-                    },
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 10,
+                    childAspectRatio: 1.0,
                   ),
+                  itemCount: savedGames.length,
+                  itemBuilder: (context, index) {
+                    return _buildSavedGameCard(context, savedGames[index]);
+                  },
+                ),
             const SizedBox(height: 20),
           ],
         ),
@@ -124,7 +143,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: const TextStyle(fontSize: 16)),
-          Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
         ],
       ),
     );
@@ -156,9 +178,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
               ),
             ),
             const SizedBox(height: 4),
@@ -176,4 +198,3 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 }
- 
