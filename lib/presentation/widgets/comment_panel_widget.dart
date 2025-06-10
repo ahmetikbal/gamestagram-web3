@@ -5,6 +5,7 @@ import '../../data/models/game_model.dart';
 import '../../data/models/interaction_model.dart';
 import '../../application/view_models/game_view_model.dart';
 import '../../application/view_models/auth_view_model.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 /// Ultra-high performance comment panel with aggressive optimizations
 /// 
@@ -37,9 +38,9 @@ class _CommentPanelWidgetState extends State<CommentPanelWidget> {
   @override
   void initState() {
     super.initState();
-    // Immediate loading without post frame callback
+    // Load comments using the proper method
     final gameViewModel = Provider.of<GameViewModel>(context, listen: false);
-    gameViewModel.fetchCommentsFast(widget.game.id);
+    gameViewModel.fetchComments(widget.game.id);
     
     // Cache current user ID
     _currentUserId = Provider.of<AuthViewModel>(context, listen: false).currentUser?.id;
@@ -130,8 +131,7 @@ class _CommentPanelWidgetState extends State<CommentPanelWidget> {
           ),
           
           // Comment panel
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 200),
+          Positioned(
             bottom: keyboardHeight,
             left: 0,
             right: 0,
@@ -227,55 +227,156 @@ class _CommentPanelWidgetState extends State<CommentPanelWidget> {
                     
                     // Minimal input field with keyboard-aware padding
                     Container(
-                      padding: const EdgeInsets.all(16),
+                      margin: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.surface,
-                        border: Border(
-                          top: BorderSide(
-                            color: theme.colorScheme.outline.withOpacity(0.2),
-                            width: 1,
-                          ),
+                        borderRadius: BorderRadius.circular(25),
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Colors.white.withOpacity(0.15),
+                            Colors.white.withOpacity(0.08),
+                          ],
                         ),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _commentController,
-                              decoration: InputDecoration(
-                                hintText: 'Add a comment...',
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 8,
-                                ),
-                              ),
-                              textInputAction: TextInputAction.send,
-                              onSubmitted: _isPostingComment ? null : (_) => _postComment(),
-                              maxLength: 200,
-                              buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
-                            ),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.25),
+                          width: 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 20,
+                            offset: const Offset(0, 5),
                           ),
-                          const SizedBox(width: 8),
-                          _isPostingComment 
-                            ? const SizedBox(
-                                width: 40,
-                                height: 40,
-                                child: Center(
-                                  child: SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                          BoxShadow(
+                            color: Colors.white.withOpacity(0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, -2),
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(25),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Colors.white.withOpacity(0.1),
+                                  Colors.white.withOpacity(0.05),
+                                ],
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: _commentController,
+                                    style: GoogleFonts.poppins(
+                                      color: Colors.white,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    decoration: InputDecoration(
+                                      hintText: 'Add a comment...',
+                                      hintStyle: GoogleFonts.poppins(
+                                        color: Colors.white.withOpacity(0.6),
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                      border: InputBorder.none,
+                                      enabledBorder: InputBorder.none,
+                                      focusedBorder: InputBorder.none,
+                                      contentPadding: const EdgeInsets.symmetric(
+                                        horizontal: 20,
+                                        vertical: 12,
+                                      ),
+                                      prefixIcon: Padding(
+                                        padding: const EdgeInsets.all(12.0),
+                                        child: Icon(
+                                          Icons.chat_bubble_outline_rounded,
+                                          color: Colors.white.withOpacity(0.7),
+                                          size: 20,
+                                        ),
+                                      ),
+                                    ),
+                                    textInputAction: TextInputAction.send,
+                                    onSubmitted: _isPostingComment ? null : (_) => _postComment(),
+                                    maxLength: 200,
+                                    buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
                                   ),
                                 ),
-                              )
-                            : IconButton(
-                                onPressed: _postComment,
-                                icon: const Icon(Icons.send),
-                              ),
-                        ],
+                                Container(
+                                  margin: const EdgeInsets.only(right: 4, left: 4),
+                                  child: _isPostingComment 
+                                    ? Container(
+                                        width: 44,
+                                        height: 44,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          gradient: LinearGradient(
+                                            colors: [
+                                              theme.colorScheme.primary.withOpacity(0.3),
+                                              theme.colorScheme.secondary.withOpacity(0.3),
+                                            ],
+                                          ),
+                                        ),
+                                        child: const Center(
+                                          child: SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                    : Container(
+                                        width: 44,
+                                        height: 44,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          gradient: LinearGradient(
+                                            colors: [
+                                              theme.colorScheme.primary,
+                                              theme.colorScheme.secondary,
+                                            ],
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: theme.colorScheme.primary.withOpacity(0.3),
+                                              blurRadius: 10,
+                                              offset: const Offset(0, 4),
+                                            ),
+                                          ],
+                                        ),
+                                        child: ClipOval(
+                                          child: Material(
+                                            color: Colors.transparent,
+                                            child: InkWell(
+                                              onTap: _postComment,
+                                              splashColor: Colors.white.withOpacity(0.2),
+                                              highlightColor: Colors.white.withOpacity(0.1),
+                                              child: const Center(
+                                                child: Icon(
+                                                  Icons.send_rounded,
+                                                  color: Colors.white,
+                                                  size: 20,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -389,7 +490,7 @@ class _FastCommentBubble extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            comment.content,
+            comment.content ?? comment.text ?? '',
             style: TextStyle(
               color: isCurrentUser 
                   ? theme.colorScheme.onPrimary 

@@ -48,8 +48,9 @@ class GameViewModel extends ChangeNotifier {
   bool _hasMoreComments = true;
 
   GameViewModel() {
-    // Start background cache pre-warming for better performance
-    _prewarmCacheInBackground();
+    // GameService is already initialized as a final field
+    // Skip pre-warming for now to prevent crashes
+    print('[GameViewModel] GameViewModel initialized');
   }
   
   /// Toggles fullscreen mode for all games globally
@@ -78,37 +79,131 @@ class GameViewModel extends ChangeNotifier {
     _errorMessage = null;
   }
 
-  /// Loads the initial set of games with optimized performance
-  Future<void> fetchInitialGames({int? count}) async {
-    if (_isLoading && _games.isEmpty) return;
+  void _setError(String error) {
+    _errorMessage = error;
+    notifyListeners();
+  }
+
+  /// Initial loading of games with optimized image validation and caching
+  Future<void> loadInitialGames({int? count}) async {
+    if (_isLoading) return;
+    
     _setLoading(true);
-    _clearError();
     try {
-      // Use the fast fetch method that prioritizes cached results
-      final fetchedGames = await _gameService.fetchGamesFast(count: count ?? _initialLoadCount);
-      _games = fetchedGames;
+      // Get all games but only process a small subset
+      final allGames = await _gameService.getAllGames();
+      print('[GameViewModel] Got ${allGames.length} total games from service');
+      
+      if (allGames.isEmpty) {
+        print('[GameViewModel] No games available');
+        _games = [];
+        return;
+      }
+      
+      // Take only a manageable number of games and filter them
+      final requestedCount = count ?? _initialLoadCount;
+      final gamesToProcess = allGames
+          .where((game) => 
+              game.title.isNotEmpty && 
+              game.description.isNotEmpty &&
+              game.id.isNotEmpty)
+          .take(requestedCount * 3) // Get more than needed to account for filtering
+          .toList();
+      
+      print('[GameViewModel] Processing ${gamesToProcess.length} games');
+      
+      // Process games in batches to avoid overwhelming the system
+      final processedGames = <GameModel>[];
+      int processed = 0;
+      
+      for (final game in gamesToProcess) {
+        try {
+          // Basic initialization without heavy image validation
+          game.likeCount = 0; // Start with 0, will be updated later
+          game.commentCount = 0;
+          game.isLikedByCurrentUser = false;
+          game.isSavedByCurrentUser = false;
+          
+          processedGames.add(game);
+          processed++;
+          
+          // Stop when we have enough games
+          if (processedGames.length >= requestedCount) {
+            break;
+          }
+          
+          // Yield control every 10 games to prevent blocking
+          if (processed % 10 == 0) {
+            await Future.delayed(Duration.zero);
+          }
+        } catch (e) {
+          print('[GameViewModel] Error processing game ${game.id}: $e');
+          continue;
+        }
+      }
+      
+      _games = processedGames;
+      print('[GameViewModel] Successfully loaded ${_games.length} games');
+      
+      // Update UI immediately
+      notifyListeners();
+      
+      // Load social data in background (non-blocking)
+      _loadSocialDataInBackground();
+      
+      // Cache games for better performance
       for (var game in _games) {
-        game.likeCount = _socialService.getLikeCount(game.id);
-        
-        // Cache the game for better performance
         _gameCache[game.id] = game;
-        
-        // Use fast comment count for instant loading
-        game.commentCount = _socialService.getCommentCountFast(game.id);
       }
       
       // If we received fewer games than requested, we've likely reached the end
-      _hasMoreGames = fetchedGames.length >= (count ?? _initialLoadCount);
+      _hasMoreGames = processedGames.length >= requestedCount;
       
       // Preload comments for these games in background
-      _preloadNewGameComments(fetchedGames);
+      _preloadNewGameComments(processedGames);
       
       print('[GameViewModel] Initial games loaded: ${_games.length}');
     } catch (e) {
-      _errorMessage = e.toString();
-      print('[GameViewModel] Error fetching initial games: $_errorMessage');
+      print('[GameViewModel] Error in loadInitialGames: $e');
+      _setError('Failed to load games: $e');
+      _games = [];
     } finally {
       _setLoading(false);
+    }
+  }
+  
+  /// Load social data (likes, comments) in background without blocking UI
+  void _loadSocialDataInBackground() async {
+    try {
+      for (int i = 0; i < _games.length; i++) {
+        final game = _games[i];
+        
+        // Load like count
+        try {
+          game.likeCount = await _socialService.getLikeCount(game.id);
+        } catch (e) {
+          print('[GameViewModel] Error loading likes for ${game.id}: $e');
+        }
+        
+        // Load comment count
+        try {
+          game.commentCount = _socialService.getCommentCountFast(game.id);
+        } catch (e) {
+          print('[GameViewModel] Error loading comments for ${game.id}: $e');
+        }
+        
+        // Update UI every 5 games
+        if (i % 5 == 0) {
+          notifyListeners();
+          await Future.delayed(Duration(milliseconds: 100)); // Small delay
+        }
+      }
+      
+      // Final UI update
+      notifyListeners();
+      print('[GameViewModel] Background social data loading complete');
+    } catch (e) {
+      print('[GameViewModel] Error in background social data loading: $e');
     }
   }
 
@@ -122,7 +217,7 @@ class GameViewModel extends ChangeNotifier {
       
       // Process and cache each game
       for (var game in moreGames) {
-        game.likeCount = _socialService.getLikeCount(game.id);
+        game.likeCount = await _socialService.getLikeCount(game.id);
         
         // Cache the game for better performance
         _gameCache[game.id] = game;
@@ -171,7 +266,7 @@ class GameViewModel extends ChangeNotifier {
     try {
       final actualLikedState = await _socialService.toggleLikeGame(gameId, userId);
       _games[gameIndex].isLikedByCurrentUser = actualLikedState;
-      _games[gameIndex].likeCount = _socialService.getLikeCount(gameId);
+      _games[gameIndex].likeCount = await _socialService.getLikeCount(gameId);
       notifyListeners();
       print('[GameViewModel] Game $gameId like toggled by $userId. New status: ${game.isLikedByCurrentUser}, Likes: ${game.likeCount}');
     } catch (e) {
@@ -215,7 +310,7 @@ class GameViewModel extends ChangeNotifier {
     _savedGames = [];
     
     try {
-      final savedGameIds = _socialService.getSavedGameIds(userId);
+      final savedGameIds = await _socialService.getSavedGameIds(userId);
       
       // Create a set to prevent duplicate games
       final addedGameIds = <String>{};
@@ -236,14 +331,29 @@ class GameViewModel extends ChangeNotifier {
     }
   }
 
-  /// Checks if a specific game is saved by a user
-  bool isGameSavedByUser(String gameId, String userId) {
-    return _socialService.isGameSavedByUser(gameId, userId);
+  /// Checks if a game is saved by the current user
+  Future<bool> isGameSavedByUser(String gameId, String userId) async {
+    final savedGameIds = await _socialService.getSavedGameIds(userId);
+    return savedGameIds.contains(gameId);
   }
 
-  /// Checks if a specific game is liked by a user
-  bool isGameLikedByUser(String gameId, String userId) {
-    return _socialService.isGameLikedByUser(gameId, userId);
+  /// Checks if a game is liked by the current user
+  Future<bool> isGameLikedByUser(String gameId, String userId) async {
+    return await _socialService.isGameLikedByUser(gameId, userId);
+  }
+
+  /// Synchronous version - checks if a game is saved by the current user (from cached state)
+  bool isGameSavedByUserSync(String gameId, String userId) {
+    // Use the game's isSavedByCurrentUser flag which should be set when games are loaded
+    final game = _games.firstWhere((g) => g.id == gameId, orElse: () => GameModel(id: '', title: '', description: ''));
+    return game.isSavedByCurrentUser;
+  }
+
+  /// Synchronous version - checks if a game is liked by the current user (from cached state)
+  bool isGameLikedByUserSync(String gameId, String userId) {
+    // Use the game's isLikedByCurrentUser flag which should be set when games are loaded
+    final game = _games.firstWhere((g) => g.id == gameId, orElse: () => GameModel(id: '', title: '', description: ''));
+    return game.isLikedByCurrentUser;
   }
 
   /// Gets the like count for a specific game
@@ -284,7 +394,7 @@ class GameViewModel extends ChangeNotifier {
     // Load fresh comments in background
     _setLoadingComments(true);
     try {
-      final comments = await _socialService.getComments(gameId, page: _commentsPage, forceRefresh: forceRefresh);
+      final comments = await _socialService.getComments(gameId, limit: 20);
       
       if (_commentsPage == 0) {
         // Remove duplicates by ID for fresh load
@@ -382,12 +492,13 @@ class GameViewModel extends ChangeNotifier {
         // Update game comment count
         final gameIndex = _games.indexWhere((g) => g.id == gameId);
         if (gameIndex != -1) {
-          final newCount = _socialService.getCommentCountFast(gameId);
-          if (_games[gameIndex].commentCount != newCount) {
-            _games[gameIndex].commentCount = newCount;
-            shouldNotify = true;
-          }
+          // Get accurate comment count from Firestore
+          _games[gameIndex].commentCount = await _socialService.getCommentCount(gameId);
+          shouldNotify = true;
         }
+        
+        // Refresh user statistics to update profile counts
+        await loadUserStatistics(userId);
         
         // Single notification for all updates
         if (shouldNotify) {
@@ -410,39 +521,140 @@ class GameViewModel extends ChangeNotifier {
     return true;
   }
 
+  // Cache for user stats to avoid frequent Firestore calls
+  final Map<String, Map<String, int>> _userStatsCache = {};
+  
   /// Gets user statistics for likes across all games
   int getUserLikeCount(String userId) {
-    return _socialService.getUserLikeCount(userId);
+    return _userStatsCache[userId]?['likeCount'] ?? 0;
   }
   
   /// Gets user statistics for comments across all games
   int getUserCommentCount(String userId) {
-    return _socialService.getUserCommentCount(userId);
+    return _userStatsCache[userId]?['commentCount'] ?? 0;
   }
 
-  /// Pre-warms the image validation cache in the background
-  void _prewarmCacheInBackground() {
-    // Don't await this - let it run in background
-    _gameService.prewarmImageCache().catchError((e) {
-      print('[GameViewModel] Error pre-warming cache: $e');
-    });
-    
-    // Also preload comments for better performance
-    _preloadCommentsInBackground();
-  }
-  
-  /// Preloads comments for current games in background
-  void _preloadCommentsInBackground() {
-    if (_games.isNotEmpty) {
-      final gameIds = _games.map((game) => game.id).toList();
-      _socialService.preloadComments(gameIds);
+  /// Loads and caches user statistics
+  Future<void> loadUserStatistics(String userId) async {
+    try {
+      final likeCount = await _socialService.getUserLikeCount(userId);
+      final commentCount = await _socialService.getUserCommentCount(userId);
+      
+      _userStatsCache[userId] = {
+        'likeCount': likeCount,
+        'commentCount': commentCount,
+      };
+      
+      notifyListeners();
+      print('[GameViewModel] Loaded user stats for $userId: $likeCount likes, $commentCount comments');
+    } catch (e) {
+      print('[GameViewModel] Error loading user stats: $e');
+      _userStatsCache[userId] = {
+        'likeCount': 0,
+        'commentCount': 0,
+      };
     }
   }
-  
+
   /// Call this when new games are loaded to preload their comments
   void _preloadNewGameComments(List<GameModel> newGames) {
     final gameIds = newGames.map((game) => game.id).toList();
     _socialService.preloadComments(gameIds);
+  }
+
+  /// Loads game statistics (likes, comments, etc.)
+  Future<void> loadGameStats(GameModel game) async {
+    try {
+      // Update like count
+      game.likeCount = await _socialService.getLikeCount(game.id);
+      
+      // Update comment count
+      game.commentCount = await _socialService.getCommentCount(game.id);
+      
+      notifyListeners();
+      print('[GameViewModel] Loaded stats for game ${game.id}: ${game.likeCount} likes, ${game.commentCount} comments');
+    } catch (e) {
+      print('[GameViewModel] Error loading game stats: $e');
+    }
+  }
+
+  /// Loads user statistics
+  Future<Map<String, int>> loadUserStats(String userId) async {
+    try {
+      final stats = {
+        'likeCount': 0,
+        'commentCount': 0,
+        'savedGamesCount': 0,
+      };
+      
+      // Count saved games
+      final savedGameIds = await _socialService.getSavedGameIds(userId);
+      stats['savedGamesCount'] = savedGameIds.length;
+      
+      // For now, we don't have user-specific like/comment counts in the simplified service
+      // These would need to be implemented if needed
+      
+      return stats;
+    } catch (e) {
+      print('[GameViewModel] Error loading user stats: $e');
+      return {
+        'likeCount': 0,
+        'commentCount': 0,
+        'savedGamesCount': 0,
+      };
+    }
+  }
+
+  /// Toggles like status for a game
+  Future<void> toggleLike(String gameId, String userId) async {
+    try {
+      final isLiked = await _socialService.toggleLikeGame(gameId, userId);
+      
+      // Update the game in memory
+      final gameIndex = _games.indexWhere((g) => g.id == gameId);
+      if (gameIndex != -1) {
+        _games[gameIndex].isLikedByCurrentUser = isLiked;
+        // Update like count
+        _games[gameIndex].likeCount = await _socialService.getLikeCount(gameId);
+      }
+      
+      // Refresh user statistics to update profile counts
+      await loadUserStatistics(userId);
+      
+      notifyListeners();
+      print('[GameViewModel] Game $gameId ${isLiked ? 'liked' : 'unliked'} by user $userId');
+    } catch (e) {
+      print('[GameViewModel] Error toggling like: $e');
+    }
+  }
+
+  /// Toggles save status for a game
+  Future<void> toggleSave(String gameId, String userId) async {
+    try {
+      final isSaved = await _socialService.toggleSaveGame(gameId, userId);
+      
+      // Update the game in memory
+      final gameIndex = _games.indexWhere((g) => g.id == gameId);
+      if (gameIndex != -1) {
+        _games[gameIndex].isSavedByCurrentUser = isSaved;
+      }
+      
+      // If the game was unsaved, remove it from saved games list
+      if (!isSaved) {
+        _savedGames.removeWhere((g) => g.id == gameId);
+      } else {
+        // If the game was saved and it's not in the saved games list, add it
+        final savedGame = _games.firstWhere((g) => g.id == gameId);
+        if (!_savedGames.any((g) => g.id == gameId)) {
+          _savedGames.add(savedGame);
+        }
+      }
+      
+      notifyListeners();
+      print('[GameViewModel] Game $gameId ${isSaved ? 'saved' : 'unsaved'} by user $userId');
+    } catch (e) {
+      print('[GameViewModel] Error toggling save: $e');
+    }
   }
 }
  

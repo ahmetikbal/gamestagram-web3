@@ -3,40 +3,34 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:app_links/app_links.dart';
 import 'dart:async';
-<<<<<<< HEAD
-=======
 import 'dart:io';
->>>>>>> 7320d77 (Games updated, SSL Certificate issues solved globally)
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
+import 'firebase_options.dart';
 import 'application/view_models/auth_view_model.dart';
 import 'application/view_models/game_view_model.dart';
 import 'presentation/screens/welcome_screen.dart';
 import 'presentation/screens/home_screen.dart';
-import 'presentation/screens/game_webview_screen.dart';
 import 'presentation/screens/game_details_screen.dart';
-<<<<<<< HEAD
-import 'services/game_service.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
-import 'package:firebase_app_check/firebase_app_check.dart';
-=======
 import 'utils/network_config.dart';
-import 'services/auth_service.dart';
 import 'services/game_service.dart';
-import 'services/social_service.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
-  await FirebaseAppCheck.instance.activate(
-    //webRecaptchaSiteKey: 'recaptcha-v3-site-key',
-    // Set androidProvider to `AndroidProvider.debug`
-    androidProvider: AndroidProvider.debug,
+  
+  // Initialize Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
   );
-  //print(FirebaseAppCheck.instance.getToken());
-  runApp(const MyApp());
-}
-*/
-=======
+  
+  // Configure Firebase App Check for development
+  await FirebaseAppCheck.instance.activate(
+    // For development/testing, use debug provider
+    androidProvider: AndroidProvider.debug,
+    appleProvider: AppleProvider.debug,
+  );
+  
+  print('[MainApp] Firebase and App Check initialized successfully');
   
   // Override HTTP client for images to handle SSL issues
   HttpOverrides.global = _CustomHttpOverrides();
@@ -51,7 +45,6 @@ class _CustomHttpOverrides extends HttpOverrides {
     return NetworkConfig.createHttpClient();
   }
 }
->>>>>>> 7320d77 (Games updated, SSL Certificate issues solved globally)
 
 class MyApp extends StatefulWidget {
   const MyApp({Key? key}) : super(key: key);
@@ -313,7 +306,8 @@ class _DeepLinkHandlerState extends State<DeepLinkHandler> {
           // In a real app, you would have a method to get a game by ID
           // Here we'll look for the game in the current list or fetch initial games
           if (gameViewModel.games.isEmpty) {
-            await gameViewModel.fetchInitialGames();
+            print('[MainApp] Initializing GameViewModel...');
+            await gameViewModel.loadInitialGames();
           }
 
           // Find the game

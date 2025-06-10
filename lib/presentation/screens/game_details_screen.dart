@@ -1,65 +1,41 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'dart:ui';
+
 import '../../data/models/game_model.dart';
 import '../../application/view_models/game_view_model.dart';
 import '../../application/view_models/auth_view_model.dart';
 import 'game_webview_screen.dart';
-import '../widgets/comment_panel_widget.dart';
-import '../screens/game_webview_screen.dart';
-import '../../utils/network_config.dart';
 
 class GameDetailsScreen extends StatefulWidget {
   final GameModel game;
 
-  const GameDetailsScreen({Key? key, required this.game}) : super(key: key);
+  const GameDetailsScreen({super.key, required this.game});
 
   @override
   State<GameDetailsScreen> createState() => _GameDetailsScreenState();
 }
 
-class _GameDetailsScreenState extends State<GameDetailsScreen>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _animationController;
-  late Animation<double> _headerAnimation;
-  late Animation<double> _contentAnimation;
+class _GameDetailsScreenState extends State<GameDetailsScreen> {
+  late ScrollController _scrollController;
 
   @override
   void initState() {
     super.initState();
-
-    // Animation setup
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 500),
-      vsync: this,
-    );
-
-    _headerAnimation = CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOut,
-    );
-
-    _contentAnimation = CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    );
+    _scrollController = ScrollController();
 
     // Load fresh game stats from Firestore Database when viewing details
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final gameViewModel = Provider.of<GameViewModel>(context, listen: false);
       gameViewModel.loadGameStats(widget.game);
     });
-
-    // Start the animation after a short delay
-    Future.delayed(const Duration(milliseconds: 100), () {
-      _animationController.forward();
-    });
   }
 
   @override
   void dispose() {
-    _animationController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -73,17 +49,30 @@ class _GameDetailsScreenState extends State<GameDetailsScreen>
 
   /// Navigates to the game's web view for playing
   void _playGame() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder:
-            (context) => GameWebViewScreen(
-              gameId: widget.game.id,
-              gameUrl: widget.game.gameUrl!,
-              gameTitle: widget.game.title,
-            ),
-      ),
-    );
+    if (widget.game.gameUrl != null && widget.game.gameUrl!.isNotEmpty) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => GameWebViewScreen(
+            gameId: widget.game.id,
+            gameUrl: widget.game.gameUrl!,
+            gameTitle: widget.game.title,
+          ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Game URL not available',
+            style: GoogleFonts.poppins(color: Colors.white),
+          ),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    }
   }
 
   /// Returns appropriate icon for different game genres
@@ -108,723 +97,517 @@ class _GameDetailsScreenState extends State<GameDetailsScreen>
     }
   }
 
+  /// Toggles like status for the game
+  Future<void> _toggleLike() async {
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    final gameViewModel = Provider.of<GameViewModel>(context, listen: false);
+    final currentUser = authViewModel.currentUser;
+
+    if (currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Please log in to like games',
+            style: GoogleFonts.poppins(color: Colors.white),
+          ),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+      return;
+    }
+
+    await gameViewModel.toggleLike(widget.game.id, currentUser.id);
+  }
+
+  /// Toggles save status for the game
+  Future<void> _toggleSave() async {
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    final gameViewModel = Provider.of<GameViewModel>(context, listen: false);
+    final currentUser = authViewModel.currentUser;
+
+    if (currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Please log in to save games',
+            style: GoogleFonts.poppins(color: Colors.white),
+          ),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+      return;
+    }
+
+    await gameViewModel.toggleSave(widget.game.id, currentUser.id);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final size = MediaQuery.of(context).size;
 
-    final gameViewModel = Provider.of<GameViewModel>(context);
-    final authViewModel = Provider.of<AuthViewModel>(context);
-    final currentUser = authViewModel.currentUser;
-
-    final bool isSaved =
-        currentUser != null
-            ? gameViewModel.isGameSavedByUser(widget.game.id, currentUser.id)
+    return Consumer2<GameViewModel, AuthViewModel>(
+      builder: (context, gameViewModel, authViewModel, child) {
+        final currentUser = authViewModel.currentUser;
+        final bool isSaved = currentUser != null
+            ? gameViewModel.isGameSavedByUserSync(widget.game.id, currentUser.id)
+            : false;
+        final bool isLiked = currentUser != null
+            ? gameViewModel.isGameLikedByUserSync(widget.game.id, currentUser.id)
             : false;
 
-    final bool isLiked =
-        currentUser != null
-            ? gameViewModel.isGameLikedByUser(widget.game.id, currentUser.id)
-            : false;
-
-    return Scaffold(
-      backgroundColor: theme.colorScheme.background,
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        leading: Container(
-          margin: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.4),
-            shape: BoxShape.circle,
-          ),
-          child: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () {
-              Navigator.pop(context);
-            },
-          ),
-        ),
-        actions: [
-          Container(
-            margin: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.4),
-              shape: BoxShape.circle,
+        return Scaffold(
+          backgroundColor: theme.scaffoldBackgroundColor,
+          extendBodyBehindAppBar: true,
+          appBar: AppBar(
+            elevation: 0,
+            backgroundColor: Colors.transparent,
+            leading: Container(
+              margin: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.4),
+                shape: BoxShape.circle,
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () => Navigator.pop(context),
+              ),
             ),
-            child: IconButton(
-              icon: const Icon(Icons.share_rounded, color: Colors.white),
-              onPressed: _shareGame,
-            ),
+            actions: [
+              Container(
+                margin: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.4),
+                  shape: BoxShape.circle,
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.share_rounded, color: Colors.white),
+                  onPressed: _shareGame,
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          // Background image with gradient overlay
-          SizedBox.expand(
-<<<<<<< HEAD
-            child:
-                widget.game.imageUrl != null && widget.game.imageUrl!.isNotEmpty
+          body: Stack(
+            children: [
+              // Background image with gradient overlay
+              SizedBox.expand(
+                child: widget.game.imageUrl != null && widget.game.imageUrl!.isNotEmpty
                     ? Stack(
-                      children: [
-                        // Game image
-                        Image.network(
-                          widget.game.imageUrl!,
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                          height: double.infinity,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    theme.colorScheme.primary.withOpacity(0.7),
-                                    theme.colorScheme.secondary.withOpacity(
-                                      0.7,
-                                    ),
-                                  ],
+                        children: [
+                          // Game image
+                          Image.network(
+                            widget.game.imageUrl!,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            height: double.infinity,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      theme.colorScheme.primary.withValues(alpha: 0.7),
+                                      theme.colorScheme.secondary.withValues(alpha: 0.7),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              child: Center(
-                                child: Icon(
-                                  Icons.videogame_asset,
-                                  size: 80,
-                                  color: Colors.white.withOpacity(0.3),
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    value: loadingProgress.expectedTotalBytes != null
+                                        ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                        : null,
+                                    color: Colors.white.withValues(alpha: 0.7),
+                                  ),
                                 ),
-=======
-            child: widget.game.imageUrl != null && widget.game.imageUrl!.isNotEmpty
-                ? Stack(
-                    children: [
-                      // Game image
-                      Image.network(
-                        widget.game.imageUrl!,
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        height: double.infinity,
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return Container(
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      theme.colorScheme.primary.withValues(alpha: 0.7),
+                                      theme.colorScheme.secondary.withValues(alpha: 0.7),
+                                    ],
+                                  ),
+                                ),
+                                child: Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.videogame_asset,
+                                        size: 80,
+                                        color: Colors.white.withValues(alpha: 0.3),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        'Image unavailable',
+                                        style: TextStyle(
+                                          color: Colors.white.withValues(alpha: 0.6),
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'Game is still playable',
+                                        style: TextStyle(
+                                          color: Colors.white.withValues(alpha: 0.4),
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          // Gradient overlay
+                          Container(
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
                                 colors: [
-                                  theme.colorScheme.primary.withOpacity(0.7),
-                                  theme.colorScheme.secondary.withOpacity(0.7),
+                                  Colors.black.withValues(alpha: 0.1),
+                                  Colors.black.withValues(alpha: 0.7),
+                                  Colors.black.withValues(alpha: 0.9),
                                 ],
                               ),
-                            ),
-                            child: Center(
-                              child: CircularProgressIndicator(
-                                value: loadingProgress.expectedTotalBytes != null
-                                    ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                                    : null,
-                                color: Colors.white.withOpacity(0.7),
-                              ),
-                            ),
-                          );
-                        },
-                        errorBuilder: (context, error, stackTrace) {
-                          // Enhanced error handling for SSL and network issues
-                          print('Game details image loading error: $error');
-                          
-                          // Use NetworkConfig utility for better error detection and messaging
-                          String errorMessage = NetworkConfig.isNetworkError(error) 
-                              ? NetworkConfig.getNetworkErrorMessage(error)
-                              : 'Image unavailable';
-                          
-                          // Select appropriate icon based on error type
-                          IconData errorIcon = Icons.videogame_asset;
-                          if (errorMessage.contains('SSL') || errorMessage.contains('certificate')) {
-                            errorIcon = Icons.security;
-                          } else if (errorMessage.contains('Connection') || errorMessage.contains('Network')) {
-                            errorIcon = Icons.wifi_off;
-                          } else if (errorMessage.contains('timeout')) {
-                            errorIcon = Icons.timer_off;
-                          }
-                          
-                          return Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  theme.colorScheme.primary.withOpacity(0.7),
-                                  theme.colorScheme.secondary.withOpacity(0.7),
-                                ],
-                              ),
-                            ),
-                            child: Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    errorIcon,
-                                    size: 80,
-                                    color: Colors.white.withOpacity(0.3),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    errorMessage,
-                                    style: TextStyle(
-                                      color: Colors.white.withOpacity(0.6),
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Game is still playable',
-                                    style: TextStyle(
-                                      color: Colors.white.withOpacity(0.4),
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
->>>>>>> 7320d77 (Games updated, SSL Certificate issues solved globally)
-                              ),
-                            );
-                          },
-                        ),
-                        // Gradient overlay
-                        Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.black.withOpacity(0.1),
-                                Colors.black.withOpacity(0.7),
-                                Colors.black.withOpacity(0.9),
-                              ],
                             ),
                           ),
-                        ),
-                      ],
-                    )
+                        ],
+                      )
                     : Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            theme.colorScheme.primary.withOpacity(0.7),
-                            theme.colorScheme.secondary.withOpacity(0.7),
-                            theme.colorScheme.background,
-                          ],
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              theme.colorScheme.primary.withValues(alpha: 0.7),
+                              theme.colorScheme.secondary.withValues(alpha: 0.7),
+                              theme.scaffoldBackgroundColor,
+                            ],
+                          ),
+                        ),
+                        child: Center(
+                          child: Icon(
+                            Icons.videogame_asset,
+                            size: 80,
+                            color: Colors.white.withValues(alpha: 0.3),
+                          ),
                         ),
                       ),
-                      child: Center(
-                        child: Icon(
-                          Icons.videogame_asset,
-                          size: 80,
-                          color: Colors.white.withOpacity(0.3),
-                        ),
-                      ),
-                    ),
-          ),
+              ),
 
-          // Content
-          SafeArea(
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Top spacer
-                  SizedBox(height: size.height * 0.25),
+              // Content
+              SafeArea(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  controller: _scrollController,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Top spacer
+                      SizedBox(height: size.height * 0.25),
 
-                  // Game info section with animation
-                  FadeTransition(
-                    opacity: _headerAnimation,
-                    child: SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(0, 0.2),
-                        end: Offset.zero,
-                      ).animate(_headerAnimation),
-                      child: Padding(
+                      // Game info section
+                      Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 24.0),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Title with shadow for better visibility
                             Text(
                               widget.game.title,
-                              style: theme.textTheme.headlineMedium?.copyWith(
-                                color: Colors.white,
+                              style: GoogleFonts.poppins(
+                                fontSize: 28,
                                 fontWeight: FontWeight.bold,
-                                shadows: [
-                                  Shadow(
-                                    offset: const Offset(1, 1),
-                                    blurRadius: 4,
-                                    color: Colors.black.withOpacity(0.5),
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            
+                            Text(
+                              widget.game.genre ?? 'Game',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            
+                            const SizedBox(height: 16),
+                            
+                            // Game stats
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.1),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                children: [
+                                  _buildStatItem(
+                                    label: 'Likes',
+                                    value: widget.game.likeCount.toString(),
+                                    icon: Icons.favorite,
+                                  ),
+                                  _buildStatItem(
+                                    label: 'Comments',
+                                    value: widget.game.commentCount.toString(),
+                                    icon: Icons.comment,
+                                  ),
+                                  _buildStatItem(
+                                    label: 'Genre',
+                                    value: widget.game.genre ?? 'Game',
+                                    icon: _getGenreIcon(widget.game.genre ?? 'Game'),
                                   ),
                                 ],
                               ),
                             ),
-
-                            const SizedBox(height: 16),
-
-                            // Ratings and metrics
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                // Like count with heart icon
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.favorite,
-                                        color: Colors.red.shade400,
-                                        size: 18,
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        '${widget.game.likeCount}',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-
-                                // Comment count with chat icon
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.chat_bubble_outline,
-                                        color: Colors.blue.shade200,
-                                        size: 18,
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        '${widget.game.commentCount}',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-
-                                // Playable badge
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        theme.colorScheme.primary,
-                                        theme.colorScheme.secondary,
-                                      ],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                    ),
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.sports_esports,
-                                        color: Colors.white,
-                                        size: 16,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        'PLAYABLE',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 10,
-                                          letterSpacing: 0.5,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-
-                                // Genre badge (if available)
-                                if (widget.game.genre != null)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.15),
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          _getGenreIcon(widget.game.genre!),
-                                          color: Colors.amber.shade300,
-                                          size: 16,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          widget.game.genre!,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 10,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Game description and details
-                  FadeTransition(
-                    opacity: _contentAnimation,
-                    child: SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(0, 0.3),
-                        end: Offset.zero,
-                      ).animate(_contentAnimation),
-                      child: Container(
-                        width: double.infinity,
-                        constraints: BoxConstraints(
-                          minHeight: MediaQuery.of(context).size.height * 0.6,
-                        ),
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surface.withOpacity(0.9),
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(30),
-                            topRight: Radius.circular(30),
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Section title
-                            Text(
-                              'About this Game',
-                              style: theme.textTheme.titleLarge?.copyWith(
-                                color: theme.colorScheme.onSurface,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-
-                            const SizedBox(height: 16),
-
-                            // Game description without expand/collapse
-                            Container(
-                              child: Text(
-                                widget.game.description,
-                                style: theme.textTheme.bodyLarge?.copyWith(
-                                  color: theme.colorScheme.onSurface
-                                      .withOpacity(0.8),
-                                ),
-                              ),
-                            ),
-
+                            
                             const SizedBox(height: 24),
-
-                            // Interaction buttons row
+                            
+                            // Action buttons
                             Row(
                               children: [
+                                // Play button
+                                Expanded(
+                                  flex: 2,
+                                  child: Container(
+                                    height: 56,
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          theme.colorScheme.primary,
+                                          theme.colorScheme.secondary,
+                                        ],
+                                      ),
+                                      borderRadius: BorderRadius.circular(16),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                                          blurRadius: 12,
+                                          offset: const Offset(0, 6),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Material(
+                                      color: Colors.transparent,
+                                      child: InkWell(
+                                        onTap: _playGame,
+                                        borderRadius: BorderRadius.circular(16),
+                                        child: Center(
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              const Icon(Icons.play_arrow, color: Colors.white, size: 24),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                'Play Game',
+                                                style: GoogleFonts.poppins(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Colors.white,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                
+                                const SizedBox(width: 12),
+                                
                                 // Like button
-                                Expanded(
-                                  child: GestureDetector(
-                                    onTap: () {
-                                      if (currentUser != null) {
-                                        gameViewModel.toggleLikeGame(
-                                          widget.game.id,
-                                          currentUser.id,
-                                        );
-                                      } else {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              'Please login to like games',
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                    },
-                                    child: AnimatedContainer(
-                                      duration: const Duration(
-                                        milliseconds: 300,
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 12,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color:
-                                            isLiked
-                                                ? theme.colorScheme.primary
-                                                    .withOpacity(0.2)
-                                                : Colors.transparent,
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(
-                                          color:
-                                              isLiked
-                                                  ? theme.colorScheme.primary
-                                                  : theme.colorScheme.onSurface
-                                                      .withOpacity(0.2),
-                                          width: 1,
+                                Container(
+                                  width: 56,
+                                  height: 56,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(alpha: 0.2),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      onTap: _toggleLike,
+                                      borderRadius: BorderRadius.circular(16),
+                                      child: Center(
+                                        child: Icon(
+                                          isLiked ? Icons.favorite : Icons.favorite_border,
+                                          color: isLiked ? Colors.red : Colors.white,
+                                          size: 24,
                                         ),
-                                      ),
-                                      child: Column(
-                                        children: [
-                                          Icon(
-                                            isLiked
-                                                ? Icons.favorite
-                                                : Icons.favorite_border,
-                                            color:
-                                                isLiked
-                                                    ? Colors.red
-                                                    : theme
-                                                        .colorScheme
-                                                        .onSurface,
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            'Like',
-                                            style: TextStyle(
-                                              color:
-                                                  isLiked
-                                                      ? theme
-                                                          .colorScheme
-                                                          .primary
-                                                      : theme
-                                                          .colorScheme
-                                                          .onSurface,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ],
                                       ),
                                     ),
                                   ),
                                 ),
-
+                                
                                 const SizedBox(width: 12),
-
+                                
                                 // Save button
-                                Expanded(
-                                  child: GestureDetector(
-                                    onTap: () {
-                                      if (currentUser != null) {
-                                        gameViewModel.toggleSaveGame(
-                                          widget.game.id,
-                                          currentUser.id,
-                                        );
-                                      } else {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              'Please login to save games',
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                    },
-                                    child: AnimatedContainer(
-                                      duration: const Duration(
-                                        milliseconds: 300,
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 12,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color:
-                                            isSaved
-                                                ? theme.colorScheme.primary
-                                                    .withOpacity(0.2)
-                                                : Colors.transparent,
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(
-                                          color:
-                                              isSaved
-                                                  ? theme.colorScheme.primary
-                                                  : theme.colorScheme.onSurface
-                                                      .withOpacity(0.2),
-                                          width: 1,
-                                        ),
-                                      ),
-                                      child: Column(
-                                        children: [
-                                          Icon(
-                                            isSaved
-                                                ? Icons.bookmark
-                                                : Icons.bookmark_border,
-                                            color:
-                                                isSaved
-                                                    ? theme.colorScheme.primary
-                                                    : theme
-                                                        .colorScheme
-                                                        .onSurface,
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            'Save',
-                                            style: TextStyle(
-                                              color:
-                                                  isSaved
-                                                      ? theme
-                                                          .colorScheme
-                                                          .primary
-                                                      : theme
-                                                          .colorScheme
-                                                          .onSurface,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
+                                Container(
+                                  width: 56,
+                                  height: 56,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(alpha: 0.2),
+                                      width: 1,
                                     ),
                                   ),
-                                ),
-
-                                const SizedBox(width: 12),
-
-                                // Share button
-                                Expanded(
-                                  child: GestureDetector(
-                                    onTap: _shareGame,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 12,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.transparent,
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(
-                                          color: theme.colorScheme.onSurface
-                                              .withOpacity(0.2),
-                                          width: 1,
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      onTap: _toggleSave,
+                                      borderRadius: BorderRadius.circular(16),
+                                      child: Center(
+                                        child: Icon(
+                                          isSaved ? Icons.bookmark : Icons.bookmark_border,
+                                          color: isSaved ? theme.colorScheme.primary : Colors.white,
+                                          size: 24,
                                         ),
-                                      ),
-                                      child: Column(
-                                        children: [
-                                          Icon(
-                                            Icons.share,
-                                            color: theme.colorScheme.onSurface,
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            'Share',
-                                            style: TextStyle(
-                                              color:
-                                                  theme.colorScheme.onSurface,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ],
                                       ),
                                     ),
                                   ),
                                 ),
                               ],
                             ),
-
-                            const SizedBox(height: 24),
-
-                            // Play button
-                            SizedBox(
-                              width: double.infinity,
-                              child: Padding(
-                                padding: const EdgeInsets.only(
-                                  top: 16,
-                                  bottom: 40,
-                                ),
-                                child: ElevatedButton(
-                                  onPressed:
-                                      widget.game.gameUrl != null &&
-                                              widget.game.gameUrl!.isNotEmpty
-                                          ? _playGame
-                                          : null,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: theme.colorScheme.primary,
-                                    foregroundColor:
-                                        theme.colorScheme.onPrimary,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 16,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    elevation: 4,
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const Icon(Icons.play_arrow, size: 28),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        'PLAY NOW',
-                                        style: theme.textTheme.titleMedium
-                                            ?.copyWith(
-                                              color:
-                                                  theme.colorScheme.onPrimary,
-                                              fontWeight: FontWeight.bold,
-                                              letterSpacing: 1,
-                                            ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
                           ],
                         ),
                       ),
-                    ),
+                      
+                      const SizedBox(height: 32),
+                      
+                      // Game description and details
+                      Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.symmetric(horizontal: 24.0),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(24),
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Colors.white.withValues(alpha: 0.15),
+                              Colors.white.withValues(alpha: 0.05),
+                            ],
+                          ),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            width: 1.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.1),
+                              blurRadius: 20,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(24),
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                            child: Padding(
+                              padding: const EdgeInsets.all(24.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'About this game',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    widget.game.description ?? 'No description available for this game yet. Dive in and discover what makes it special!',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 16,
+                                      color: Colors.white.withValues(alpha: 0.8),
+                                      height: 1.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 32),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
+    );
+  }
+
+  Widget _buildStatItem({
+    required String label,
+    required String value,
+    required IconData icon,
+  }) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            icon,
+            color: Colors.white,
+            size: 20,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            color: Colors.white.withValues(alpha: 0.7),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 }

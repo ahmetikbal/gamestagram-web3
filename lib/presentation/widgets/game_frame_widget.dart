@@ -37,19 +37,11 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
   // Performance optimization: Cache image loading state
   static final Map<String, bool> _imageCache = {};
   static final Map<String, Widget> _widgetCache = {};
-  bool _isScrolling = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    
-    // Detect scrolling to prevent heavy operations
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _detectScrolling();
-      }
-    });
   }
 
   @override
@@ -76,15 +68,6 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
   /// Handles first-time initialization and proper cleanup
   void _toggleGameVisibility() {
     if (!mounted) return; // Prevent setState after dispose
-    
-    // Prevent WebView operations during scroll for performance
-    if (_isScrolling) {
-      setState(() {
-        _isScrolling = true; // Trigger scroll detection delay
-      });
-      _detectScrolling();
-      return;
-    }
     
     final gameViewModel = Provider.of<GameViewModel>(context, listen: false);
     
@@ -268,17 +251,6 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
     );
   }
 
-  void _detectScrolling() {
-    // Simple scroll detection to prevent WebView init during scroll
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (mounted) {
-        setState(() {
-          _isScrolling = false;
-        });
-      }
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
@@ -297,7 +269,7 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
 
     // Check if game is saved
     final bool isSaved = currentUser != null ? 
-      gameViewModel.isGameSavedByUser(widget.game.id, currentUser.id) : false;
+      gameViewModel.isGameSavedByUserSync(widget.game.id, currentUser.id) : false;
 
     void _shareGame() {
       final String gameDeepLink = 'gamestagram://game/${widget.game.id}';
@@ -416,54 +388,7 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
             left: 10,
             child: Row(
               children: [
-                // Enhanced global full view toggle button (only when game is not playing)
-                if (!_isGameVisible)
-                  Material(
-                    color: Colors.transparent,
-                    child: Container(
-                      margin: const EdgeInsets.all(4),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(16),
-                        onTap: () {
-                          gameViewModel.toggleGlobalFullView();
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: isGlobalFullView 
-                                ? theme.colorScheme.secondary.withOpacity(0.85) 
-                                : Colors.black.withOpacity(0.3),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.3),
-                              width: 1,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.3),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 300),
-                            transitionBuilder: (Widget child, Animation<double> animation) {
-                              return ScaleTransition(scale: animation, child: child);
-                            },
-                            child: Icon(
-                              isGlobalFullView 
-                                ? Icons.visibility_outlined 
-                                : Icons.fullscreen_rounded,
-                              key: ValueKey<bool>(isGlobalFullView),
-                              color: Colors.white,
-                              size: 24,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                // Fullscreen button removed as requested
                 
                                     // Enhanced close/pause game button (only when game is visible)
                 if (_isGameVisible)
@@ -558,7 +483,7 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
                 Consumer<GameViewModel>(
                   builder: (context, gvm, child) {
                     bool isLiked = currentUser != null 
-                        ? gvm.isGameLikedByUser(widget.game.id, currentUser.id)
+                        ? gvm.isGameLikedByUserSync(widget.game.id, currentUser.id)
                         : false;
                     int currentLikeCount = gvm.getGameLikeCount(widget.game.id);
                     return Column(

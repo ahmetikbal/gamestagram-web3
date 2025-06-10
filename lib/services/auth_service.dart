@@ -3,30 +3,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../data/models/user_model.dart';
 
 /// Service for handling user authentication and session management
-/// Uses SharedPreferences for local data persistence in this demo app
+/// Uses Firebase Auth and Firestore for user management
 class AuthService {
   final firebase_auth.FirebaseAuth _auth = firebase_auth.FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-<<<<<<< HEAD
-  // Get user data from Firestore
+  /// Get user data from Firestore
   Future<UserModel?> _getUserData(String uid) async {
-=======
-  Map<String, UserModel> _mockUserDetails = {}; // email: UserModel
-  Map<String, String> _mockUserPasswords = {}; // email: password
-  int _userIdCounter = 0;
-
-  // Flag to ensure prefs are loaded only once
-  bool _prefsLoaded = false;
-
-  AuthService() {
-    _loadDataFromPrefs(); // Load data when service is instantiated
-  }
-
-  /// Loads user data from SharedPreferences on service initialization
-  Future<void> _loadDataFromPrefs() async {
-    if (_prefsLoaded) return;
->>>>>>> 650e07f (Refactors on commenting and meaningful on-line explanations)
     try {
       DocumentSnapshot doc =
           await _firestore.collection('Users').doc(uid).get();
@@ -40,40 +23,12 @@ class AuthService {
       }
       return null;
     } catch (e) {
-<<<<<<< HEAD
       print('[AuthService] Error getting user data: $e');
       return null;
     }
   }
 
-  // Register new user
-=======
-      print('[AuthService] Error loading data from SharedPreferences: $e');
-      // Initialize with empty if error, or handle more gracefully
-      _mockUserDetails = {};
-      _mockUserPasswords = {};
-      _userIdCounter = 0;
-    }
-  }
-
-  /// Persists user data to SharedPreferences
-  Future<void> _saveDataToPrefs() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final List<Map<String, dynamic>> userList = _mockUserDetails.values.map((user) => user.toJson()).toList();
-      await prefs.setString(_usersKey, jsonEncode(userList));
-      await prefs.setString(_passwordsKey, jsonEncode(_mockUserPasswords));
-      await prefs.setInt(_userIdCounterKey, _userIdCounter);
-      // Note: We don't save _lastLoggedInUserEmailKey here directly as it's managed by login/logout specifically
-      print('[AuthService] Saved general data to SharedPreferences. Users: ${_mockUserDetails.length}, Counter: $_userIdCounter');
-    } catch (e) {
-      print('[AuthService] Error saving data to SharedPreferences: $e');
-    }
-  }
-
-  /// Registers a new user with email, username, and password
-  /// Returns success status and user data or error message
->>>>>>> 650e07f (Refactors on commenting and meaningful on-line explanations)
+  /// Register new user
   Future<Map<String, dynamic>> register({
     required String username,
     required String email,
@@ -142,12 +97,7 @@ class AuthService {
     }
   }
 
-<<<<<<< HEAD
-  // Login user
-=======
-  /// Authenticates user with email/username and password
-  /// Supports login with either email or username
->>>>>>> 650e07f (Refactors on commenting and meaningful on-line explanations)
+  /// Login user with email/username and password
   Future<Map<String, dynamic>> login({
     required String emailOrUsername,
     required String password,
@@ -172,7 +122,6 @@ class AuthService {
 
         email = userQuery.docs.first.get('email') as String;
       }
-<<<<<<< HEAD
 
       // Sign in with Firebase Auth
       firebase_auth.UserCredential userCredential = await _auth
@@ -204,55 +153,121 @@ class AuthService {
     }
   }
 
-  // Try auto-login
-=======
-      return {'success': true, 'message': 'Login successful', 'user': foundUser};
-    } else {
-      print('[AuthService] Login failed for $emailOrUsername.');
-      print('[AuthService] foundUser: ${foundUser?.id}, userEmailKey: $userEmailKey, storedPassword: ${_mockUserPasswords[userEmailKey]}');
-      print('[AuthService] Current _mockUserDetails: $_mockUserDetails');
-      print('[AuthService] Current _mockUserPasswords: $_mockUserPasswords');
-      return {'success': false, 'message': 'Invalid email/username or password'};
-    }
-  }
-
-  /// Ensures preferences are loaded before performing operations
-  Future<void> _ensurePrefsLoaded() async {
-    if (!_prefsLoaded) {
-      await _loadDataFromPrefs();
-    }
-  }
-
-  /// Attempts to automatically log in user based on stored session
->>>>>>> 650e07f (Refactors on commenting and meaningful on-line explanations)
-  Future<UserModel?> tryAutoLogin() async {
+  /// Get current user
+  Future<UserModel?> getCurrentUser() async {
     try {
       firebase_auth.User? firebaseUser = _auth.currentUser;
-
       if (firebaseUser != null) {
-        print('[AuthService] Found logged in user: ${firebaseUser.email}');
         return await _getUserData(firebaseUser.uid);
       }
-
-      print('[AuthService] No logged in user found');
       return null;
+    } catch (e) {
+      print('[AuthService] Error getting current user: $e');
+      return null;
+    }
+  }
+
+  /// Logout user
+  Future<void> logout() async {
+    try {
+      await _auth.signOut();
+      print('[AuthService] User logged out successfully');
+    } catch (e) {
+      print('[AuthService] Error during logout: $e');
+    }
+  }
+
+  /// Try auto-login for existing user
+  Future<UserModel?> tryAutoLogin() async {
+    try {
+      return await getCurrentUser();
     } catch (e) {
       print('[AuthService] Error during auto-login: $e');
       return null;
     }
   }
 
-<<<<<<< HEAD
-  // Logout user
-=======
-  /// Logs out the current user and clears session data
->>>>>>> 650e07f (Refactors on commenting and meaningful on-line explanations)
-  Future<void> logout() async {
+  /// Update user profile
+  Future<Map<String, dynamic>> updateProfile({
+    required String userId,
+    required String username,
+    required String email,
+    required String currentPassword,
+    String? newPassword,
+  }) async {
     try {
-      await _auth.signOut();
-      print('[AuthService] User logged out');
+      print('[AuthService] Updating profile for user: $userId');
+      
+      firebase_auth.User? firebaseUser = _auth.currentUser;
+      if (firebaseUser == null || firebaseUser.uid != userId) {
+        return {'success': false, 'message': 'User not authenticated'};
+      }
+
+      // Verify current password by re-authenticating
+      firebase_auth.AuthCredential credential = firebase_auth.EmailAuthProvider.credential(
+        email: firebaseUser.email!,
+        password: currentPassword,
+      );
+      
+      await firebaseUser.reauthenticateWithCredential(credential);
+
+      // Check if username is already taken (if changed)
+      if (username != firebaseUser.displayName) {
+        QuerySnapshot usernameQuery = await _firestore
+            .collection('Users')
+            .where('username', isEqualTo: username)
+            .get();
+
+        // Remove current user from results
+        var existingUsers = usernameQuery.docs.where((doc) => doc.id != userId).toList();
+        if (existingUsers.isNotEmpty) {
+          return {'success': false, 'message': 'Username already taken'};
+        }
+      }
+
+      // Update email if changed
+      if (email != firebaseUser.email) {
+        await firebaseUser.updateEmail(email);
+      }
+
+      // Update password if provided
+      if (newPassword != null && newPassword.isNotEmpty) {
+        await firebaseUser.updatePassword(newPassword);
+      }
+
+      // Update user document in Firestore
+      await _firestore.collection('Users').doc(userId).update({
+        'username': username,
+        'email': email,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      print('[AuthService] Profile update successful for user: $userId');
+      return {
+        'success': true,
+        'message': 'Profile updated successfully',
+      };
+      
+    } on firebase_auth.FirebaseAuthException catch (e) {
+      String errorMessage;
+      
+      if (e.code == 'wrong-password') {
+        errorMessage = 'Current password is incorrect';
+      } else if (e.code == 'email-already-in-use') {
+        errorMessage = 'Email is already in use by another account';
+      } else if (e.code == 'weak-password') {
+        errorMessage = 'New password is too weak';
+      } else if (e.code == 'requires-recent-login') {
+        errorMessage = 'Please re-login and try again';
+      } else {
+        errorMessage = 'Update failed: ${e.message}';
+      }
+      
+      print('[AuthService] Profile update error: $errorMessage');
+      return {'success': false, 'message': errorMessage};
     } catch (e) {
-      print('[AuthService] Error during logout: $e');
+      print('[AuthService] Unexpected error during profile update: $e');
+      return {'success': false, 'message': 'An unexpected error occurred'};
     }
   }
 }

@@ -6,12 +6,8 @@ class InteractionModel {
   final String id;
   final String userId;
   final String username;
-<<<<<<< HEAD
-  final InteractionType type;
-  final String? text; // For comments
-=======
-  final String content;
->>>>>>> 650e07f (Refactors on commenting and meaningful on-line explanations)
+  final String? text; // For comments (backwards compatibility)
+  final String? content; // New field for content
   final DateTime timestamp;
   final InteractionType type;
 
@@ -19,32 +15,21 @@ class InteractionModel {
     required this.id,
     required this.userId,
     required this.username,
-<<<<<<< HEAD
     required this.type,
     this.text,
-=======
-    required this.content,
->>>>>>> 650e07f (Refactors on commenting and meaningful on-line explanations)
+    this.content,
     required this.timestamp,
-    required this.type,
   });
-<<<<<<< HEAD
 
-  // Factory constructor to create an InteractionModel from JSON
-=======
-  
   /// Creates an InteractionModel instance from JSON data
->>>>>>> 650e07f (Refactors on commenting and meaningful on-line explanations)
   factory InteractionModel.fromJson(Map<String, dynamic> json) {
     return InteractionModel(
       id: json['id'] as String,
       userId: json['userId'] as String,
       username: json['username'] as String,
-<<<<<<< HEAD
-=======
-      content: json['content'] as String,
+      text: json['text'] as String?,
+      content: json['content'] as String?,
       timestamp: DateTime.parse(json['timestamp'] as String),
->>>>>>> 650e07f (Refactors on commenting and meaningful on-line explanations)
       type: InteractionType.values.firstWhere(
         (e) => e.toString() == 'InteractionType.${json['type']}',
         orElse: () => InteractionType.comment,
@@ -58,9 +43,13 @@ class InteractionModel {
       'id': id,
       'userId': userId,
       'username': username,
-      'content': content,
+      'text': text,
+      'content': content ?? text, // Use content if available, fallback to text
       'timestamp': timestamp.toIso8601String(),
       'type': type.toString().split('.').last,
     };
   }
+
+  /// Get the actual content text (either content or text field)
+  String get actualContent => content ?? text ?? '';
 }

@@ -42,4 +42,23 @@ class UserModel {
       // 'isLikedByCurrentUser': isLikedByCurrentUser,
     };
   }
+
+  // Method to create a copy of UserModel with updated fields
+  UserModel copyWith({
+    String? id,
+    String? username,
+    String? email,
+    int? likeCount,
+    int? commentCount,
+    bool? isLikedByCurrentUser,
+  }) {
+    return UserModel(
+      id: id ?? this.id,
+      username: username ?? this.username,
+      email: email ?? this.email,
+      likeCount: likeCount ?? this.likeCount,
+      commentCount: commentCount ?? this.commentCount,
+      isLikedByCurrentUser: isLikedByCurrentUser ?? this.isLikedByCurrentUser,
+    );
+  }
 } 

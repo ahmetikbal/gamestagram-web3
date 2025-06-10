@@ -23,7 +23,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<GameViewModel>(context, listen: false).fetchInitialGames();
+      Provider.of<GameViewModel>(context, listen: false).loadInitialGames();
     });
   }
 
@@ -106,7 +106,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       Text('Error: ${gvm.errorMessage}'),
                       const SizedBox(height: 10),
                       ElevatedButton(
-                        onPressed: () => gvm.fetchInitialGames(),
+                        onPressed: () => gvm.loadInitialGames(),
                         child: const Text('Retry'),
                       )
                     ],
@@ -121,7 +121,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       const Text('No games available right now. Try again later!'),
                       const SizedBox(height: 10),
                       ElevatedButton(
-                        onPressed: () => gvm.fetchInitialGames(),
+                        onPressed: () => gvm.loadInitialGames(),
                         child: const Text('Refresh Games'),
                       )
                     ],

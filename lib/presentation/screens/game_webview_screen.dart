@@ -369,7 +369,7 @@ Page resource error:
 
     // Check if game is saved by current user
     final bool isSaved = userId != null
-        ? gameViewModel.isGameSavedByUser(widget.gameId, userId)
+        ? gameViewModel.isGameSavedByUserSync(widget.gameId, userId)
         : false;
 
     return WillPopScope(

@@ -116,4 +116,48 @@ class AuthViewModel extends ChangeNotifier {
     print('[AuthViewModel] User logged out. CurrentUser is now: $_currentUser');
     notifyListeners();
   }
+
+  Future<bool> updateProfile({
+    required String username,
+    required String email,
+    required String currentPassword,
+    String? newPassword,
+  }) async {
+    if (_currentUser == null) {
+      _errorMessage = 'No user logged in';
+      notifyListeners();
+      return false;
+    }
+
+    _setLoading(true);
+    _clearError();
+    
+    print('[AuthViewModel] Updating profile for user: ${_currentUser!.username}');
+    
+    final response = await _authService.updateProfile(
+      userId: _currentUser!.id,
+      username: username,
+      email: email,
+      currentPassword: currentPassword,
+      newPassword: newPassword,
+    );
+    
+    _setLoading(false);
+    
+    if (response['success']) {
+      // Update the current user data
+      _currentUser = _currentUser!.copyWith(
+        username: username,
+        email: email,
+      );
+      print('[AuthViewModel] Profile update successful. Updated user: ${_currentUser?.username}');
+      notifyListeners();
+      return true;
+    } else {
+      _errorMessage = response['message'];
+      print('[AuthViewModel] Profile update error: $_errorMessage');
+      notifyListeners();
+      return false;
+    }
+  }
 }
