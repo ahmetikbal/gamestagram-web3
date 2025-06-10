@@ -7,8 +7,6 @@ import '../widgets/comment_panel_widget.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../screens/game_details_screen.dart';
-import 'dart:io';
-import '../screens/game_webview_screen.dart';
 
 /// A comprehensive game display widget that handles game presentation, interaction, and playback
 /// 
@@ -33,10 +31,7 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
   bool _isGameLoaded = false;
   bool _isGameVisible = false;
   WebViewController? _controller;
-  
-  // Performance optimization: Cache image loading state
-  static final Map<String, bool> _imageCache = {};
-  static final Map<String, Widget> _widgetCache = {};
+
 
   @override
   void initState() {
@@ -112,27 +107,27 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
   }
 
   /// Pauses WebView content including audio, video, and animations
-  /// Uses JavaScript injection to gracefully pause game elements
+  /// Uses optimized JavaScript injection to gracefully pause game elements
   void _pauseWebView() {
     if (_controller != null) {
-      _controller!.runJavaScript('''
-        // Pause any audio/video elements
-        document.querySelectorAll('audio, video').forEach(function(el) {
-          if(el && !el.paused) { el.pause(); }
-        });
-        
-        // Attempt to pause canvas animations
-        if (window.cancelAnimationFrame) {
-          var id = window.requestAnimationFrame(function(){});
-          while(id--) { window.cancelAnimationFrame(id); }
-        }
-        
-        // Inform game it's paused (for games that support visibility API)
-        document.hidden = true;
-        if (document.dispatchEvent) {
-          document.dispatchEvent(new Event('visibilitychange'));
-        }
-      ''');
+      // Use Future.microtask to avoid blocking main thread
+      Future.microtask(() {
+        _controller!.runJavaScript('''
+          try {
+            // Pause any audio/video elements
+            const media = document.querySelectorAll('audio, video');
+            for (const el of media) {
+              if (el && !el.paused) el.pause();
+            }
+            
+            // Inform game it's paused (simpler approach)
+            document.hidden = true;
+            document.dispatchEvent && document.dispatchEvent(new Event('visibilitychange'));
+          } catch(e) {
+            console.log('Pause failed:', e);
+          }
+        ''');
+      });
     }
   }
 
@@ -205,48 +200,34 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
       );
     }
     
-    // For network URLs, display them with loading indicator
-    return Center(
-      child: ClipRRect(
+    // TEMPORARILY DISABLED: For network URLs, display them with optimized loading
+    // Displaying placeholder instead to test performance impact
+    return Container(
+      width: 200,
+      height: 200,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary.withOpacity(0.1),
         borderRadius: BorderRadius.circular(8),
-        child: Image.network(
-          imageUrl,
-          fit: BoxFit.cover,
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) {
-              return child;
-            }
-            // Show loading indicator while image loads
-            return Container(
-              width: 200,
-              height: 200,
-              child: Center(
-                child: CircularProgressIndicator(
-                  value: loadingProgress.expectedTotalBytes != null
-                      ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                      : null,
-                  color: Colors.white.withOpacity(0.7),
-                ),
-              ),
-            );
-          },
-          errorBuilder: (context, error, stackTrace) {
-            // Fallback to game controller icon for network errors
-            return Container(
-              width: 200,
-              height: 200,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                Icons.videogame_asset,
-                size: 140,
-                color: theme.colorScheme.primary.withOpacity(0.6),
-              ),
-            );
-          },
-        ),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.videogame_asset,
+            size: 140,
+            color: theme.colorScheme.primary.withOpacity(0.6),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Image Loading\nDisabled',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: theme.colorScheme.primary.withOpacity(0.7),
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }

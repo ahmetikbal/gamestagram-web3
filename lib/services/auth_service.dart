@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../data/models/user_model.dart';
+import '../../utils/logger.dart';
 
 /// Service for handling user authentication and session management
 /// Uses Firebase Auth and Firestore for user management
@@ -23,7 +24,7 @@ class AuthService {
       }
       return null;
     } catch (e) {
-      print('[AuthService] Error getting user data: $e');
+      AppLogger.error('[AuthService] Error getting user data: $e', 'AuthService');
       return null;
     }
   }
@@ -72,7 +73,7 @@ class AuthService {
         email: email,
       );
 
-      print('[AuthService] Registration successful for $email');
+      AppLogger.debug('Registration successful for $email', 'AuthService');
       return {
         'success': true,
         'message': 'Registration successful',
@@ -89,10 +90,10 @@ class AuthService {
         errorMessage = 'Registration failed: ${e.message}';
       }
 
-      print('[AuthService] Registration error: $errorMessage');
+      AppLogger.error('[AuthService] Registration error: $errorMessage', 'AuthService');
       return {'success': false, 'message': errorMessage};
     } catch (e) {
-      print('[AuthService] Unexpected error during registration: $e');
+      AppLogger.error('[AuthService] Unexpected error during registration: $e', 'AuthService');
       return {'success': false, 'message': 'An unexpected error occurred'};
     }
   }
@@ -103,7 +104,7 @@ class AuthService {
     required String password,
   }) async {
     try {
-      print('[AuthService] Attempting login for: $emailOrUsername');
+      AppLogger.debug('Attempting login for: $emailOrUsername', 'AuthService');
 
       String email = emailOrUsername;
 
@@ -134,7 +135,7 @@ class AuthService {
         return {'success': false, 'message': 'User data not found'};
       }
 
-      print('[AuthService] Login successful for ${user.username}');
+      AppLogger.debug('Login successful for ${user.username}', 'AuthService');
       return {'success': true, 'message': 'Login successful', 'user': user};
     } on firebase_auth.FirebaseAuthException catch (e) {
       String errorMessage;
@@ -145,10 +146,10 @@ class AuthService {
         errorMessage = 'Login failed: ${e.message}';
       }
 
-      print('[AuthService] Login error: $errorMessage');
+      AppLogger.error('[AuthService] Login error: $errorMessage', 'AuthService');
       return {'success': false, 'message': errorMessage};
     } catch (e) {
-      print('[AuthService] Unexpected error during login: $e');
+      AppLogger.error('[AuthService] Unexpected error during login: $e', 'AuthService');
       return {'success': false, 'message': 'An unexpected error occurred'};
     }
   }
@@ -162,7 +163,7 @@ class AuthService {
       }
       return null;
     } catch (e) {
-      print('[AuthService] Error getting current user: $e');
+      AppLogger.error('[AuthService] Error getting current user: $e', 'AuthService');
       return null;
     }
   }
@@ -171,9 +172,9 @@ class AuthService {
   Future<void> logout() async {
     try {
       await _auth.signOut();
-      print('[AuthService] User logged out successfully');
+      AppLogger.debug('User logged out successfully', 'AuthService');
     } catch (e) {
-      print('[AuthService] Error during logout: $e');
+      AppLogger.error('[AuthService] Error during logout: $e', 'AuthService');
     }
   }
 
@@ -182,7 +183,7 @@ class AuthService {
     try {
       return await getCurrentUser();
     } catch (e) {
-      print('[AuthService] Error during auto-login: $e');
+      AppLogger.error('[AuthService] Error during auto-login: $e', 'AuthService');
       return null;
     }
   }
@@ -196,7 +197,7 @@ class AuthService {
     String? newPassword,
   }) async {
     try {
-      print('[AuthService] Updating profile for user: $userId');
+      AppLogger.debug('Updating profile for user: $userId', 'AuthService');
       
       firebase_auth.User? firebaseUser = _auth.currentUser;
       if (firebaseUser == null || firebaseUser.uid != userId) {
@@ -242,7 +243,7 @@ class AuthService {
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      print('[AuthService] Profile update successful for user: $userId');
+      AppLogger.debug('Profile update successful for user: $userId', 'AuthService');
       return {
         'success': true,
         'message': 'Profile updated successfully',
@@ -263,10 +264,10 @@ class AuthService {
         errorMessage = 'Update failed: ${e.message}';
       }
       
-      print('[AuthService] Profile update error: $errorMessage');
+      AppLogger.error('[AuthService] Profile update error: $errorMessage', 'AuthService');
       return {'success': false, 'message': errorMessage};
     } catch (e) {
-      print('[AuthService] Unexpected error during profile update: $e');
+      AppLogger.error('[AuthService] Unexpected error during profile update: $e', 'AuthService');
       return {'success': false, 'message': 'An unexpected error occurred'};
     }
   }

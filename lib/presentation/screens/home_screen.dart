@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../widgets/game_frame_widget.dart';
@@ -45,50 +44,52 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       extendBodyBehindAppBar: true,
-      backgroundColor: theme.colorScheme.background,
+      backgroundColor: theme.colorScheme.surface,
       body: Stack(
         children: [
-          // Background decoration
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  theme.colorScheme.primary.withOpacity(0.15),
-                  theme.colorScheme.secondary.withOpacity(0.25),
+          // Optimized background decoration - moved to RepaintBoundary for better performance
+          RepaintBoundary(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    theme.colorScheme.primary.withValues(alpha: 0.15),
+                    theme.colorScheme.secondary.withValues(alpha: 0.25),
+                  ],
+                ),
+              ),
+              child: Stack(
+                children: [
+                  // Top left decorative element
+                  Positioned(
+                    top: -50,
+                    left: -50,
+                    child: Container(
+                      height: 200,
+                      width: 200,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: theme.colorScheme.primary.withValues(alpha: 0.15),
+                      ),
+                    ),
+                  ),
+                  // Bottom right decorative element
+                  Positioned(
+                    bottom: -100,
+                    right: -50,
+                    child: Container(
+                      height: 300,
+                      width: 300,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: theme.colorScheme.secondary.withValues(alpha: 0.1),
+                      ),
+                    ),
+                  ),
                 ],
               ),
-            ),
-            child: Stack(
-              children: [
-                // Top left decorative element
-                Positioned(
-                  top: -50,
-                  left: -50,
-                  child: Container(
-                    height: 200,
-                    width: 200,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: theme.colorScheme.primary.withOpacity(0.15),
-                    ),
-                  ),
-                ),
-                // Bottom right decorative element
-                Positioned(
-                  bottom: -100,
-                  right: -50,
-                  child: Container(
-                    height: 300,
-                    width: 300,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: theme.colorScheme.secondary.withOpacity(0.1),
-                    ),
-                  ),
-                ),
-              ],
             ),
           ),
 
@@ -139,19 +140,35 @@ class _HomeScreenState extends State<HomeScreen> {
                 scrollDirection: Axis.vertical,
                 physics: effectiveScrollPhysics,
                 itemCount: gvm.games.length + (gvm.isLoading && gvm.games.isNotEmpty ? 1 : 0),
+                allowImplicitScrolling: false, // Disable preloading to improve performance
+                padEnds: false, // Improve memory usage
                 itemBuilder: (context, index) {
                   if (index == gvm.games.length && gvm.isLoading) {
-                    return const Center(child: CircularProgressIndicator());
+                    return const Center(
+                      child: SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    );
                   }
 
-                  if (index >= gvm.games.length - 2 && !gvm.isLoading) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                  // Use a more efficient threshold for loading
+                  if (index >= gvm.games.length - 3 && !gvm.isLoading && gvm.games.length > 0) {
+                    // Use Future.microtask to avoid blocking the main thread
+                    Future.microtask(() {
                       if (mounted) {
                         Provider.of<GameViewModel>(context, listen: false).fetchMoreGames();
                       }
                     });
                   }
-                  return GameFrameWidget(game: gvm.games[index]);
+                  
+                  return RepaintBoundary(
+                    child: GameFrameWidget(
+                      key: ValueKey(gvm.games[index].id), // Add key for better widget recycling
+                      game: gvm.games[index],
+                    ),
+                  );
                 },
               );
             },
@@ -169,10 +186,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.6),
+                    color: Colors.black.withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.3),
+                      color: Colors.white.withValues(alpha: 0.3),
                       width: 1,
                     ),
                   ),

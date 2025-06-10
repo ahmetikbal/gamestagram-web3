@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/services.dart';
 import '../data/models/game_model.dart';
 import '../utils/image_validator.dart';
+import '../../utils/logger.dart';
 
 /// Service for managing game data and operations
 /// Loads games from JSON asset file and provides game-related functionality with image validation
@@ -28,17 +29,17 @@ class GameService {
 
     _isLoading = true;
     try {
-      print('[GameService] Loading games from JSON asset...');
+      AppLogger.debug('Loading games from JSON asset...', 'GameService');
       final String jsonString = await rootBundle.loadString('assets/games.json');
       final Map<String, dynamic> jsonData = json.decode(jsonString);
       final List<dynamic> gamesJson = jsonData['games'] as List<dynamic>;
       
       _cachedGames = gamesJson.map((gameJson) => GameModel.fromJson(gameJson as Map<String, dynamic>)).toList();
       
-      print('[GameService] Successfully loaded ${_cachedGames!.length} games from JSON');
+      AppLogger.debug('Successfully loaded ${_cachedGames!.length} games from JSON', 'GameService');
       return _cachedGames!;
     } catch (e) {
-      print('[GameService] Error loading games from JSON: $e');
+      AppLogger.error('[GameService] Error loading games from JSON: $e', 'GameService');
       // Return empty list on error
       _cachedGames = [];
       return _cachedGames!;
@@ -54,7 +55,7 @@ class GameService {
       final allGames = await _loadGamesFromAsset();
       
       if (allGames.isEmpty) {
-        print('[GameService] No games available');
+        AppLogger.debug('No games available', 'GameService');
         return [];
       }
 
@@ -63,7 +64,7 @@ class GameService {
       
       // If we're running low on unused games, reset the used set (for infinite scroll)
       if (availableGames.length < count * 2) {
-        print('[GameService] Resetting used games list to provide more variety');
+        AppLogger.debug('Resetting used games list to provide more variety', 'GameService');
         _usedGameIds.clear();
         availableGames.clear();
         availableGames.addAll(allGames);
@@ -72,45 +73,30 @@ class GameService {
       // Shuffle available games
       availableGames.shuffle(Random());
       
-      // Filter games with images and prepare for batch validation
-      final gamesWithImages = availableGames
-          .where((game) => game.imageUrl != null && game.imageUrl!.trim().isNotEmpty)
-          .take(count * 3) // Get more games than needed to account for invalid images
-          .toList();
+      // TEMPORARILY DISABLED: Filter games with images and prepare for batch validation
+      // Skip image validation to test performance impact
+      final gamesWithImages = availableGames.take(count).toList();
       
-      if (gamesWithImages.isEmpty) {
-        print('[GameService] No games with images found');
-        return [];
-      }
-
-      print('[GameService] Starting optimized validation for ${gamesWithImages.length} games...');
+      AppLogger.debug('Skipping image validation for ${gamesWithImages.length} games (disabled for performance testing)', 'GameService');
       
-      // Extract image URLs for batch validation
-      final imageUrls = gamesWithImages.map((game) => game.imageUrl!).toList();
-      
-      // Use batch validation for better performance
-      final validationResults = await ImageValidator.validateBatchConcurrent(imageUrls);
-      
-      // Filter games with valid images
+      // Return games without validation
       final validatedGames = <GameModel>[];
       for (final game in gamesWithImages) {
-        if (validationResults[game.imageUrl!] == true) {
-          validatedGames.add(game);
-          _usedGameIds.add(game.id);
-          
-          // Stop when we have enough games
-          if (validatedGames.length >= count) {
-            break;
-          }
+        validatedGames.add(game);
+        _usedGameIds.add(game.id);
+        
+        // Stop when we have enough games
+        if (validatedGames.length >= count) {
+          break;
         }
       }
       
-      print('[GameService] ✓ Validated ${validatedGames.length} games successfully');
-      print('[GameService] Total used games: ${_usedGameIds.length}');
+      AppLogger.debug('✓ Validated ${validatedGames.length} games successfully', 'GameService');
+      AppLogger.debug('Total used games: ${_usedGameIds.length}', 'GameService');
       
       return validatedGames;
     } catch (e) {
-      print('[GameService] Error in fetchGames: $e');
+      AppLogger.error('[GameService] Error in fetchGames: $e', 'GameService');
       return [];
     }
   }
@@ -177,7 +163,7 @@ class GameService {
       
       return validatedGames.take(count).toList();
     } catch (e) {
-      print('[GameService] Error in fetchGamesFast: $e');
+      AppLogger.error('[GameService] Error in fetchGamesFast: $e', 'GameService');
       return [];
     }
   }
@@ -196,7 +182,7 @@ class GameService {
         orElse: () => throw Exception('Game not found'),
       );
     } catch (e) {
-      print('[GameService] Game with ID $gameId not found: $e');
+      AppLogger.debug('Game with ID $gameId not found: $e', 'GameService');
       return null;
     }
   }
@@ -207,7 +193,7 @@ class GameService {
       final allGames = await _loadGamesFromAsset();
       return allGames.where((game) => game.genre?.toLowerCase() == genre.toLowerCase()).toList();
     } catch (e) {
-      print('[GameService] Error filtering games by genre $genre: $e');
+      AppLogger.error('[GameService] Error filtering games by genre $genre: $e', 'GameService');
       return [];
     }
   }
@@ -226,7 +212,7 @@ class GameService {
       genres.sort(); // Sort alphabetically
       return genres;
     } catch (e) {
-      print('[GameService] Error getting available genres: $e');
+      AppLogger.error('[GameService] Error getting available genres: $e', 'GameService');
       return [];
     }
   }
@@ -247,7 +233,7 @@ class GameService {
                (game.genre?.toLowerCase().contains(lowercaseQuery) ?? false);
       }).toList();
     } catch (e) {
-      print('[GameService] Error searching games with query "$query": $e');
+      AppLogger.error('[GameService] Error searching games with query "$query": $e', 'GameService');
       return [];
     }
   }
@@ -257,13 +243,13 @@ class GameService {
     _cachedGames = null;
     _usedGameIds.clear();
     ImageValidator.clearCache();
-    print('[GameService] Game cache and used games tracking cleared');
+    AppLogger.debug('Game cache and used games tracking cleared', 'GameService');
   }
 
   /// Resets the used games tracking to allow games to be shown again
   void resetUsedGames() {
     _usedGameIds.clear();
-    print('[GameService] Used games tracking reset');
+    AppLogger.debug('Used games tracking reset', 'GameService');
   }
 
   /// Gets the total number of available games
@@ -276,14 +262,14 @@ class GameService {
   /// This significantly improves scroll performance
   static Future<void> preWarmImages(List<GameModel> games) async {
     // Temporarily disable image pre-warming to prevent crashes
-    print('[GameService] Image pre-warming disabled for stability');
+    AppLogger.debug('Image pre-warming disabled for stability', 'GameService');
     return;
     
     /*
     // Original pre-warming code - disabled for now
     if (games.isEmpty) return;
     
-    print('[GameService] Pre-warming image cache with ${games.length} images...');
+    AppLogger.debug('Pre-warming image cache with ${games.length} images...', 'GameService');
     
     int validCount = 0;
     int processedCount = 0;
@@ -344,7 +330,7 @@ class GameService {
       }
     }
     
-    print('[GameService] ✓ Pre-warmed cache: $validCount/$processedCount images valid');
+    AppLogger.debug('✓ Pre-warmed cache: $validCount/$processedCount images valid', 'GameService');
     */
   }
 } 

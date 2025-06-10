@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../../utils/logger.dart';
 
 /// Network configuration utilities for handling SSL and connection issues
 class NetworkConfig {
@@ -17,9 +18,9 @@ class NetworkConfig {
     // WARNING: This should not be used in production without proper certificate validation
     client.badCertificateCallback = (X509Certificate cert, String host, int port) {
       // Log the certificate issue for debugging
-      print('SSL Certificate warning for $host:$port');
-      print('Certificate subject: ${cert.subject}');
-      print('Certificate issuer: ${cert.issuer}');
+      AppLogger.debug('SSL Certificate warning for $host:$port', 'NetworkConfig');
+      AppLogger.debug('Certificate subject: ${cert.subject}', 'NetworkConfig');
+      AppLogger.debug('Certificate issuer: ${cert.issuer}', 'NetworkConfig');
       
       // In a production app, you should implement proper certificate validation
       // For now, we'll allow connections to continue for better user experience

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart'; // Adjust path
 import '../../data/models/user_model.dart'; // Adjust path
+import '../../utils/logger.dart';
 
 class AuthViewModel extends ChangeNotifier {
   final AuthService _authService = AuthService();
@@ -21,15 +22,13 @@ class AuthViewModel extends ChangeNotifier {
 
   Future<void> _tryAutoLogin() async {
     _setLoading(true); // Indicate loading during auto-login attempt
-    print('[AuthViewModel] Attempting auto-login...');
+    AppLogger.debug('Attempting auto-login...', 'AuthViewModel');
     final user = await _authService.tryAutoLogin();
     if (user != null) {
       _currentUser = user;
-      print(
-        '[AuthViewModel] Auto-login successful. User: ${_currentUser?.username}',
-      );
+      AppLogger.info('Auto-login successful. User: ${_currentUser?.username}', 'AuthViewModel');
     } else {
-      print('[AuthViewModel] Auto-login failed or no saved user.');
+      AppLogger.warning('Auto-login failed or no saved user.', 'AuthViewModel');
     }
     _setLoading(false);
     notifyListeners(); // Notify listeners regardless of outcome to update UI

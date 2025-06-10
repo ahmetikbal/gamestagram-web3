@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart';
+import '../../utils/logger.dart';
 
 class AudioService {
   static const MethodChannel _channel = MethodChannel('com.example.gamestagram/audio');
@@ -7,10 +8,10 @@ class AudioService {
   static Future<bool> muteApp() async {
     try {
       final bool result = await _channel.invokeMethod('muteApp');
-      print('[AudioService] App muted: $result');
+      AppLogger.debug('App muted: $result', 'AudioService');
       return result;
     } on PlatformException catch (e) {
-      print('[AudioService] Failed to mute app: ${e.message}');
+      AppLogger.debug('Failed to mute app: ${e.message}', 'AudioService');
       return false;
     }
   }
@@ -19,10 +20,10 @@ class AudioService {
   static Future<bool> unmuteApp() async {
     try {
       final bool result = await _channel.invokeMethod('unmuteApp');
-      print('[AudioService] App unmuted: $result');
+      AppLogger.debug('App unmuted: $result', 'AudioService');
       return result;
     } on PlatformException catch (e) {
-      print('[AudioService] Failed to unmute app: ${e.message}');
+      AppLogger.debug('Failed to unmute app: ${e.message}', 'AudioService');
       return false;
     }
   }
@@ -33,7 +34,7 @@ class AudioService {
       final bool result = await _channel.invokeMethod('isMuted');
       return result;
     } on PlatformException catch (e) {
-      print('[AudioService] Failed to check mute status: ${e.message}');
+      AppLogger.debug('Failed to check mute status: ${e.message}', 'AudioService');
       return false;
     }
   }

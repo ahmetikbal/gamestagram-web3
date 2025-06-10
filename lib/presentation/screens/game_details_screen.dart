@@ -193,121 +193,70 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> {
           ),
           body: Stack(
             children: [
-              // Background image with gradient overlay
+              // TEMPORARILY DISABLED: Background image with gradient overlay
+              // Using gradient placeholder instead to test performance impact
               SizedBox.expand(
-                child: widget.game.imageUrl != null && widget.game.imageUrl!.isNotEmpty
-                    ? Stack(
-                        children: [
-                          // Game image
-                          Image.network(
-                            widget.game.imageUrl!,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            height: double.infinity,
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) return child;
-                              return Container(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topCenter,
-                                    end: Alignment.bottomCenter,
-                                    colors: [
-                                      theme.colorScheme.primary.withValues(alpha: 0.7),
-                                      theme.colorScheme.secondary.withValues(alpha: 0.7),
-                                    ],
-                                  ),
-                                ),
-                                child: Center(
-                                  child: CircularProgressIndicator(
-                                    value: loadingProgress.expectedTotalBytes != null
-                                        ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                                        : null,
-                                    color: Colors.white.withValues(alpha: 0.7),
-                                  ),
-                                ),
-                              );
-                            },
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topCenter,
-                                    end: Alignment.bottomCenter,
-                                    colors: [
-                                      theme.colorScheme.primary.withValues(alpha: 0.7),
-                                      theme.colorScheme.secondary.withValues(alpha: 0.7),
-                                    ],
-                                  ),
-                                ),
-                                child: Center(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.videogame_asset,
-                                        size: 80,
-                                        color: Colors.white.withValues(alpha: 0.3),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      Text(
-                                        'Image unavailable',
-                                        style: TextStyle(
-                                          color: Colors.white.withValues(alpha: 0.6),
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        'Game is still playable',
-                                        style: TextStyle(
-                                          color: Colors.white.withValues(alpha: 0.4),
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                          // Gradient overlay
-                          Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Colors.black.withValues(alpha: 0.1),
-                                  Colors.black.withValues(alpha: 0.7),
-                                  Colors.black.withValues(alpha: 0.9),
-                                ],
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        theme.colorScheme.primary.withValues(alpha: 0.7),
+                        theme.colorScheme.secondary.withValues(alpha: 0.7),
+                        theme.scaffoldBackgroundColor,
+                      ],
+                    ),
+                  ),
+                  child: Stack(
+                    children: [
+                      Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.videogame_asset,
+                              size: 80,
+                              color: Colors.white.withValues(alpha: 0.3),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Image Loading Disabled',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.6),
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Testing performance without images',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.4),
+                                fontSize: 12,
                               ),
                             ),
-                          ),
-                        ],
-                      )
-                    : Container(
+                          ],
+                        ),
+                      ),
+                      // Gradient overlay
+                      Container(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
                             colors: [
-                              theme.colorScheme.primary.withValues(alpha: 0.7),
-                              theme.colorScheme.secondary.withValues(alpha: 0.7),
-                              theme.scaffoldBackgroundColor,
+                              Colors.black.withValues(alpha: 0.1),
+                              Colors.black.withValues(alpha: 0.7),
+                              Colors.black.withValues(alpha: 0.9),
                             ],
                           ),
                         ),
-                        child: Center(
-                          child: Icon(
-                            Icons.videogame_asset,
-                            size: 80,
-                            color: Colors.white.withValues(alpha: 0.3),
-                          ),
-                        ),
                       ),
+                    ],
+                  ),
+                ),
               ),
 
               // Content

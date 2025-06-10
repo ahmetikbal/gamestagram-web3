@@ -1,5 +1,6 @@
 import '../data/models/game_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../utils/logger.dart';
 
 enum GameOrientation {
   portrait,
@@ -165,7 +166,7 @@ class OrientationService {
         return GameOrientation.values.firstWhere((e) => e.name == value);
       }
     } catch (e) {
-      print('[OrientationService] Error getting user preference: $e');
+      AppLogger.error('[OrientationService] Error getting user preference: $e', 'OrientationService');
     }
     return null;
   }
@@ -175,10 +176,10 @@ class OrientationService {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('${_prefPrefix}$gameId', orientation.name);
-      print('[OrientationService] Saved preference for $gameId: ${orientation.name}');
+      AppLogger.debug('Saved preference for $gameId: ${orientation.name}', 'OrientationService');
       return true;
     } catch (e) {
-      print('[OrientationService] Error saving user preference: $e');
+      AppLogger.error('[OrientationService] Error saving user preference: $e', 'OrientationService');
       return false;
     }
   }
@@ -204,9 +205,9 @@ class OrientationService {
       for (String key in keys) {
         await prefs.remove(key);
       }
-      print('[OrientationService] Cleared all orientation preferences');
+      AppLogger.debug('Cleared all orientation preferences', 'OrientationService');
     } catch (e) {
-      print('[OrientationService] Error clearing preferences: $e');
+      AppLogger.error('[OrientationService] Error clearing preferences: $e', 'OrientationService');
     }
   }
 } 
