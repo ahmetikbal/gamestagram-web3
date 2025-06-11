@@ -17,12 +17,22 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final PageController _pageController = PageController();
   final ScrollPhysics _scrollPhysics = const BouncingScrollPhysics();
+  int _lastFetchIndex = -1; // Track last index where we triggered a fetch
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<GameViewModel>(context, listen: false).loadInitialGames();
+      final gameViewModel = Provider.of<GameViewModel>(context, listen: false);
+      final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+      
+      // Load initial games
+      gameViewModel.loadInitialGames();
+      
+      // Load user-specific Firebase data if user is logged in
+      if (authViewModel.currentUser != null) {
+        gameViewModel.loadUserData(authViewModel.currentUser!.id);
+      }
     });
   }
 
@@ -50,46 +60,46 @@ class _HomeScreenState extends State<HomeScreen> {
           // Optimized background decoration - moved to RepaintBoundary for better performance
           RepaintBoundary(
             child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
                     theme.colorScheme.primary.withValues(alpha: 0.15),
                     theme.colorScheme.secondary.withValues(alpha: 0.25),
-                  ],
-                ),
+                ],
               ),
-              child: Stack(
-                children: [
-                  // Top left decorative element
-                  Positioned(
-                    top: -50,
-                    left: -50,
-                    child: Container(
-                      height: 200,
-                      width: 200,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
+            ),
+            child: Stack(
+              children: [
+                // Top left decorative element
+                Positioned(
+                  top: -50,
+                  left: -50,
+                  child: Container(
+                    height: 200,
+                    width: 200,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
                         color: theme.colorScheme.primary.withValues(alpha: 0.15),
-                      ),
                     ),
                   ),
-                  // Bottom right decorative element
-                  Positioned(
-                    bottom: -100,
-                    right: -50,
-                    child: Container(
-                      height: 300,
-                      width: 300,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
+                ),
+                // Bottom right decorative element
+                Positioned(
+                  bottom: -100,
+                  right: -50,
+                  child: Container(
+                    height: 300,
+                    width: 300,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
                         color: theme.colorScheme.secondary.withValues(alpha: 0.1),
                       ),
                     ),
                   ),
                 ],
-              ),
+                ),
             ),
           ),
 
@@ -140,34 +150,29 @@ class _HomeScreenState extends State<HomeScreen> {
                 scrollDirection: Axis.vertical,
                 physics: effectiveScrollPhysics,
                 itemCount: gvm.games.length + (gvm.isLoading && gvm.games.isNotEmpty ? 1 : 0),
-                allowImplicitScrolling: false, // Disable preloading to improve performance
-                padEnds: false, // Improve memory usage
                 itemBuilder: (context, index) {
                   if (index == gvm.games.length && gvm.isLoading) {
-                    return const Center(
-                      child: SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    );
+                    return const Center(child: CircularProgressIndicator());
                   }
 
-                  // Use a more efficient threshold for loading
-                  if (index >= gvm.games.length - 3 && !gvm.isLoading && gvm.games.length > 0) {
-                    // Use Future.microtask to avoid blocking the main thread
-                    Future.microtask(() {
+                  // IMPROVED: Better guard against infinite loading
+                  if (index >= gvm.games.length - 2 && 
+                      !gvm.isLoading && 
+                      gvm.hasMoreGames && 
+                      index != _lastFetchIndex) {
+                    
+                    _lastFetchIndex = index; // Remember this index to prevent duplicate calls
+                    
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
                       if (mounted) {
+                        print('DEBUG: Triggering fetchMoreGames at index $index, total games: ${gvm.games.length}');
                         Provider.of<GameViewModel>(context, listen: false).fetchMoreGames();
                       }
                     });
                   }
                   
                   return RepaintBoundary(
-                    child: GameFrameWidget(
-                      key: ValueKey(gvm.games[index].id), // Add key for better widget recycling
-                      game: gvm.games[index],
-                    ),
+                    child: GameFrameWidget(game: gvm.games[index]),
                   );
                 },
               );

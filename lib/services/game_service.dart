@@ -1,21 +1,26 @@
-import 'dart:convert';
 import 'dart:math';
-import 'package:flutter/services.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../data/models/game_model.dart';
-import '../utils/image_validator.dart';
 import '../../utils/logger.dart';
+import 'package:flutter/services.dart';
+import 'dart:convert';
 
 /// Service for managing game data and operations
-/// Loads games from JSON asset file and provides game-related functionality with image validation
+/// Loads games from Firebase Firestore and provides game-related functionality
 class GameService {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   static List<GameModel>? _cachedGames;
   static bool _isLoading = false;
   static final Set<String> _usedGameIds = <String>{}; // Track used games to avoid duplicates
 
-  /// Loads all games from the JSON asset file
-  /// Uses caching to avoid repeated file reads
-  Future<List<GameModel>> _loadGamesFromAsset() async {
+  // Collection reference
+  CollectionReference get _gamesCollection => _firestore.collection('Games');
+
+  /// Loads all games from Firebase Firestore
+  /// Uses caching to avoid repeated network calls
+  Future<List<GameModel>> _loadGamesFromFirebase() async {
     if (_cachedGames != null) {
+      AppLogger.debug('Returning ${_cachedGames!.length} cached games', 'GameService');
       return _cachedGames!;
     }
 
@@ -29,17 +34,38 @@ class GameService {
 
     _isLoading = true;
     try {
-      AppLogger.debug('Loading games from JSON asset...', 'GameService');
-      final String jsonString = await rootBundle.loadString('assets/games.json');
-      final Map<String, dynamic> jsonData = json.decode(jsonString);
-      final List<dynamic> gamesJson = jsonData['games'] as List<dynamic>;
+      AppLogger.debug('Loading games from Firebase...', 'GameService');
       
-      _cachedGames = gamesJson.map((gameJson) => GameModel.fromJson(gameJson as Map<String, dynamic>)).toList();
+      final QuerySnapshot querySnapshot = await _gamesCollection.get();
+      AppLogger.debug('Firebase query completed. Found ${querySnapshot.docs.length} documents', 'GameService');
       
-      AppLogger.debug('Successfully loaded ${_cachedGames!.length} games from JSON', 'GameService');
+      if (querySnapshot.docs.isEmpty) {
+        AppLogger.warning('No games found in Firebase Games collection!', 'GameService');
+        _cachedGames = [];
+        return _cachedGames!;
+      }
+      
+      _cachedGames = querySnapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        AppLogger.debug('Processing game: ${data['title'] ?? 'Unknown'} (ID: ${doc.id})', 'GameService');
+        return GameModel(
+          id: doc.id,
+          title: data['title'] ?? '',
+          description: data['description'] ?? '',
+          imageUrl: data['imageUrl'],
+          gameUrl: data['gameUrl'],
+          genre: data['genre'],
+          likeCount: data['likeCount'] ?? 0,
+          commentCount: data['commentCount'] ?? 0,
+          isLikedByCurrentUser: false, // Will be updated by GameViewModel
+          isSavedByCurrentUser: false, // Will be updated by GameViewModel
+        );
+      }).toList();
+      
+      AppLogger.info('Successfully loaded ${_cachedGames!.length} games from Firebase', 'GameService');
       return _cachedGames!;
     } catch (e) {
-      AppLogger.error('[GameService] Error loading games from JSON: $e', 'GameService');
+      AppLogger.error('Error loading games from Firebase: $e', 'GameService');
       // Return empty list on error
       _cachedGames = [];
       return _cachedGames!;
@@ -48,14 +74,13 @@ class GameService {
     }
   }
 
-  /// Fetches games with optimized image validation and progressive loading
-  /// Uses batch validation and caching to minimize lag
+  /// Fetches games from Firebase with pagination support
   Future<List<GameModel>> fetchGames({int count = 10}) async {
     try {
-      final allGames = await _loadGamesFromAsset();
+      final allGames = await _loadGamesFromFirebase();
       
       if (allGames.isEmpty) {
-        AppLogger.debug('No games available', 'GameService');
+        AppLogger.debug('No games available from Firebase', 'GameService');
         return [];
       }
 
@@ -73,41 +98,41 @@ class GameService {
       // Shuffle available games
       availableGames.shuffle(Random());
       
-      // TEMPORARILY DISABLED: Filter games with images and prepare for batch validation
-      // Skip image validation to test performance impact
-      final gamesWithImages = availableGames.take(count).toList();
+      // Filter games with valid data
+      final validGames = availableGames
+          .where((game) => 
+              game.id.isNotEmpty) // Only require ID to be present
+          .take(count)
+          .toList();
       
-      AppLogger.debug('Skipping image validation for ${gamesWithImages.length} games (disabled for performance testing)', 'GameService');
+      if (validGames.isEmpty) {
+        AppLogger.debug('No valid games found in Firebase', 'GameService');
+        return [];
+      }
+
+      AppLogger.debug('Returning ${validGames.length} games from Firebase', 'GameService');
       
-      // Return games without validation
-      final validatedGames = <GameModel>[];
-      for (final game in gamesWithImages) {
-        validatedGames.add(game);
+      // Mark games as used
+      for (final game in validGames) {
         _usedGameIds.add(game.id);
-        
-        // Stop when we have enough games
-        if (validatedGames.length >= count) {
-          break;
-        }
       }
       
-      AppLogger.debug('✓ Validated ${validatedGames.length} games successfully', 'GameService');
       AppLogger.debug('Total used games: ${_usedGameIds.length}', 'GameService');
       
-      return validatedGames;
+      return validGames;
     } catch (e) {
-      AppLogger.error('[GameService] Error in fetchGames: $e', 'GameService');
+      AppLogger.error('Error in fetchGames: $e', 'GameService');
       return [];
     }
   }
 
-  /// Fast fetch method that prioritizes cached/known good images
-  /// This method checks cache first and falls back to validation only if needed
+  /// Fast fetch method that returns games immediately from Firebase
   Future<List<GameModel>> fetchGamesFast({int count = 10}) async {
     try {
-      final allGames = await _loadGamesFromAsset();
+      final allGames = await _loadGamesFromFirebase();
       
       if (allGames.isEmpty) {
+        AppLogger.debug('No games available from Firebase', 'GameService');
         return [];
       }
 
@@ -122,89 +147,95 @@ class GameService {
 
       availableGames.shuffle(Random());
       
-      final validatedGames = <GameModel>[];
-      final needsValidation = <GameModel>[];
+      // Filter games with valid data
+      final validGames = availableGames
+          .where((game) => 
+              game.id.isNotEmpty) // Only require ID to be present
+          .take(count)
+          .toList();
       
-      // First pass: Check cached results
-      for (final game in availableGames) {
-        if (game.imageUrl == null || game.imageUrl!.trim().isEmpty) continue;
-        
-        final cachedResult = ImageValidator.getCachedResult(game.imageUrl!);
-        if (cachedResult == true) {
-          validatedGames.add(game);
-          _usedGameIds.add(game.id);
-          if (validatedGames.length >= count) break;
-        } else if (cachedResult == null) {
-          needsValidation.add(game);
-        }
+      // Mark games as used
+      for (final game in validGames) {
+        _usedGameIds.add(game.id);
       }
       
-      // If we have enough from cache, return immediately
-      if (validatedGames.length >= count) {
-        return validatedGames.take(count).toList();
-      }
+      AppLogger.debug('Fast fetch returning ${validGames.length} games from Firebase', 'GameService');
       
-      // Second pass: Validate remaining images if needed
-      if (needsValidation.isNotEmpty && validatedGames.length < count) {
-        final remainingCount = count - validatedGames.length;
-        final toValidate = needsValidation.take(remainingCount * 2).toList();
-        
-        final imageUrls = toValidate.map((game) => game.imageUrl!).toList();
-        final validationResults = await ImageValidator.validateBatchConcurrent(imageUrls);
-        
-        for (final game in toValidate) {
-          if (validationResults[game.imageUrl!] == true) {
-            validatedGames.add(game);
-            _usedGameIds.add(game.id);
-            if (validatedGames.length >= count) break;
-          }
-        }
-      }
-      
-      return validatedGames.take(count).toList();
+      return validGames;
     } catch (e) {
-      AppLogger.error('[GameService] Error in fetchGamesFast: $e', 'GameService');
+      AppLogger.error('Error in fetchGamesFast: $e', 'GameService');
       return [];
     }
   }
 
-  /// Gets all available games without pagination
+  /// Gets all available games from Firebase without pagination
   Future<List<GameModel>> getAllGames() async {
-    return await _loadGamesFromAsset();
+    return await _loadGamesFromFirebase();
   }
 
-  /// Finds a specific game by its ID
+  /// Finds a specific game by its ID from Firebase
   Future<GameModel?> getGameById(String gameId) async {
     try {
-      final allGames = await _loadGamesFromAsset();
-      return allGames.firstWhere(
-        (game) => game.id == gameId,
-        orElse: () => throw Exception('Game not found'),
-      );
+      final DocumentSnapshot doc = await _gamesCollection.doc(gameId).get();
+      
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>;
+        return GameModel(
+          id: doc.id,
+          title: data['title'] ?? '',
+          description: data['description'] ?? '',
+          imageUrl: data['imageUrl'],
+          gameUrl: data['gameUrl'],
+          genre: data['genre'],
+          likeCount: data['likeCount'] ?? 0,
+          commentCount: data['commentCount'] ?? 0,
+          isLikedByCurrentUser: false,
+          isSavedByCurrentUser: false,
+        );
+      }
+      
+      return null;
     } catch (e) {
-      AppLogger.debug('Game with ID $gameId not found: $e', 'GameService');
+      AppLogger.error('Game with ID $gameId not found in Firebase: $e', 'GameService');
       return null;
     }
   }
 
-  /// Gets games filtered by genre
+  /// Gets games filtered by genre from Firebase
   Future<List<GameModel>> getGamesByGenre(String genre) async {
     try {
-      final allGames = await _loadGamesFromAsset();
-      return allGames.where((game) => game.genre?.toLowerCase() == genre.toLowerCase()).toList();
+      final QuerySnapshot querySnapshot = await _gamesCollection
+          .where('genre', isEqualTo: genre)
+          .get();
+      
+      return querySnapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        return GameModel(
+          id: doc.id,
+          title: data['title'] ?? '',
+          description: data['description'] ?? '',
+          imageUrl: data['imageUrl'],
+          gameUrl: data['gameUrl'],
+          genre: data['genre'],
+          likeCount: data['likeCount'] ?? 0,
+          commentCount: data['commentCount'] ?? 0,
+          isLikedByCurrentUser: false,
+          isSavedByCurrentUser: false,
+        );
+      }).toList();
     } catch (e) {
-      AppLogger.error('[GameService] Error filtering games by genre $genre: $e', 'GameService');
+      AppLogger.error('Error filtering games by genre $genre from Firebase: $e', 'GameService');
       return [];
     }
   }
 
-  /// Gets all unique genres available in the game collection
+  /// Gets all unique genres available in Firebase
   Future<List<String>> getAvailableGenres() async {
     try {
-      final allGames = await _loadGamesFromAsset();
-      final genres = allGames
-          .map((game) => game.genre)
-          .where((genre) => genre != null && genre.isNotEmpty)
+      final QuerySnapshot querySnapshot = await _gamesCollection.get();
+      final genres = querySnapshot.docs
+          .map((doc) => (doc.data() as Map<String, dynamic>)['genre'])
+          .where((genre) => genre != null && genre.toString().isNotEmpty)
           .cast<String>()
           .toSet()
           .toList();
@@ -212,125 +243,187 @@ class GameService {
       genres.sort(); // Sort alphabetically
       return genres;
     } catch (e) {
-      AppLogger.error('[GameService] Error getting available genres: $e', 'GameService');
+      AppLogger.error('Error getting available genres from Firebase: $e', 'GameService');
       return [];
     }
   }
 
-  /// Searches games by title or description
+  /// Searches games by title or description in Firebase
   Future<List<GameModel>> searchGames(String query) async {
     try {
       if (query.trim().isEmpty) {
         return await getAllGames();
       }
 
-      final allGames = await _loadGamesFromAsset();
-      final lowercaseQuery = query.toLowerCase();
+      final allGames = await _loadGamesFromFirebase();
+      final searchQuery = query.toLowerCase();
       
       return allGames.where((game) {
-        return game.title.toLowerCase().contains(lowercaseQuery) ||
-               game.description.toLowerCase().contains(lowercaseQuery) ||
-               (game.genre?.toLowerCase().contains(lowercaseQuery) ?? false);
+        return game.title.toLowerCase().contains(searchQuery) ||
+               game.description.toLowerCase().contains(searchQuery);
       }).toList();
     } catch (e) {
-      AppLogger.error('[GameService] Error searching games with query "$query": $e', 'GameService');
+      AppLogger.error('Error searching games in Firebase: $e', 'GameService');
       return [];
     }
   }
 
-  /// Clears the cached games and used games tracking (useful for testing or forcing reload)
+  /// Adds a new game to Firebase
+  Future<bool> addGame(GameModel game) async {
+    try {
+      await _gamesCollection.add({
+        'title': game.title,
+        'description': game.description,
+        'imageUrl': game.imageUrl,
+        'gameUrl': game.gameUrl,
+        'genre': game.genre,
+        'likeCount': 0,
+        'commentCount': 0,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      
+      // Clear cache to force reload
+      _cachedGames = null;
+      
+      AppLogger.info('Successfully added game to Firebase: ${game.title}', 'GameService');
+      return true;
+    } catch (e) {
+      AppLogger.error('Error adding game to Firebase: $e', 'GameService');
+      return false;
+    }
+  }
+
+  /// Updates an existing game in Firebase
+  Future<bool> updateGame(GameModel game) async {
+    try {
+      await _gamesCollection.doc(game.id).update({
+        'title': game.title,
+        'description': game.description,
+        'imageUrl': game.imageUrl,
+        'gameUrl': game.gameUrl,
+        'genre': game.genre,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      
+      // Clear cache to force reload
+      _cachedGames = null;
+      
+      AppLogger.info('Successfully updated game in Firebase: ${game.title}', 'GameService');
+      return true;
+    } catch (e) {
+      AppLogger.error('Error updating game in Firebase: $e', 'GameService');
+      return false;
+    }
+  }
+
+  /// Deletes a game from Firebase
+  Future<bool> deleteGame(String gameId) async {
+    try {
+      await _gamesCollection.doc(gameId).delete();
+      
+      // Clear cache to force reload
+      _cachedGames = null;
+      
+      AppLogger.info('Successfully deleted game from Firebase: $gameId', 'GameService');
+      return true;
+    } catch (e) {
+      AppLogger.error('Error deleting game from Firebase: $e', 'GameService');
+      return false;
+    }
+  }
+
+  /// Increments play count for a game
+  Future<void> incrementPlayCount(String gameId) async {
+    try {
+      await _gamesCollection.doc(gameId).update({
+        'playCount': FieldValue.increment(1),
+      });
+      
+      AppLogger.debug('Incremented play count for game: $gameId', 'GameService');
+    } catch (e) {
+      AppLogger.error('Error incrementing play count: $e', 'GameService');
+    }
+  }
+
+  /// Clears the game cache to force reload from Firebase
   void clearCache() {
     _cachedGames = null;
     _usedGameIds.clear();
-    ImageValidator.clearCache();
-    AppLogger.debug('Game cache and used games tracking cleared', 'GameService');
+    AppLogger.debug('Game cache cleared', 'GameService');
   }
 
-  /// Resets the used games tracking to allow games to be shown again
-  void resetUsedGames() {
-    _usedGameIds.clear();
-    AppLogger.debug('Used games tracking reset', 'GameService');
-  }
-
-  /// Gets the total number of available games
-  Future<int> getTotalGameCount() async {
-    final allGames = await _loadGamesFromAsset();
-    return allGames.length;
-  }
-
-  /// Pre-warms image cache for better performance
-  /// This significantly improves scroll performance
-  static Future<void> preWarmImages(List<GameModel> games) async {
-    // Temporarily disable image pre-warming to prevent crashes
-    AppLogger.debug('Image pre-warming disabled for stability', 'GameService');
-    return;
-    
-    /*
-    // Original pre-warming code - disabled for now
-    if (games.isEmpty) return;
-    
-    AppLogger.debug('Pre-warming image cache with ${games.length} images...', 'GameService');
-    
-    int validCount = 0;
-    int processedCount = 0;
-    
-    // Process in smaller batches to prevent overwhelming the system
-    const batchSize = 10;
-    for (int i = 0; i < games.length; i += batchSize) {
-      final batch = games.skip(i).take(batchSize).toList();
+  /// Migrates games from local JSON to Firebase (one-time setup)
+  Future<bool> migrateGamesFromJsonToFirebase() async {
+    try {
+      AppLogger.info('Starting migration of games from JSON to Firebase...', 'GameService');
       
-      final futures = batch.map((game) async {
-        processedCount++;
-        if (game.imageUrl == null || game.imageUrl!.isEmpty) return false;
-        
-        try {
-          // Try to load the image into cache
-          final imageProvider = CachedNetworkImageProvider(game.imageUrl!);
-          final ImageStream stream = imageProvider.resolve(ImageConfiguration.empty);
-          
-          final Completer<bool> completer = Completer<bool>();
-          late ImageStreamListener listener;
-          
-          listener = ImageStreamListener(
-            (ImageInfo image, bool synchronousCall) {
-              if (!completer.isCompleted) {
-                validCount++;
-                completer.complete(true);
-              }
-              stream.removeListener(listener);
-            },
-            onError: (dynamic error, StackTrace? stackTrace) {
-              if (!completer.isCompleted) {
-                completer.complete(false);
-              }
-              stream.removeListener(listener);
-            },
-          );
-          
-          stream.addListener(listener);
-          
-          // Timeout after 3 seconds
-          return await completer.future.timeout(
-            const Duration(seconds: 3),
-            onTimeout: () {
-              stream.removeListener(listener);
-              return false;
-            },
-          );
-        } catch (e) {
-          return false;
-        }
-      });
+      // Load from local JSON first
+      final String jsonString = await rootBundle.loadString('assets/games.json');
+      final Map<String, dynamic> jsonData = json.decode(jsonString);
+      final List<dynamic> gamesJson = jsonData['games'] as List<dynamic>;
       
-      await Future.wait(futures);
+      AppLogger.info('Found ${gamesJson.length} games in JSON file', 'GameService');
       
-      // Small delay between batches to prevent overwhelming the system
-      if (i + batchSize < games.length) {
-        await Future.delayed(const Duration(milliseconds: 100));
+      // Check if Firebase already has games
+      final QuerySnapshot existingGames = await _gamesCollection.limit(1).get();
+      if (existingGames.docs.isNotEmpty) {
+        AppLogger.warning('Firebase already contains games. Skipping migration.', 'GameService');
+        return false;
       }
+      
+      // Batch write to Firebase
+      final WriteBatch batch = _firestore.batch();
+      int batchCount = 0;
+      int totalMigrated = 0;
+      
+      for (final gameJson in gamesJson) {
+        final gameData = gameJson as Map<String, dynamic>;
+        
+        // Create document reference
+        final docRef = _gamesCollection.doc();
+        
+        // Prepare data for Firebase
+        final firebaseData = {
+          'title': gameData['title'] ?? '',
+          'description': gameData['description'] ?? '',
+          'imageUrl': gameData['imageUrl'],
+          'gameUrl': gameData['gameUrl'],
+          'genre': gameData['genre'],
+          'likeCount': 0,
+          'commentCount': 0,
+          'createdAt': FieldValue.serverTimestamp(),
+        };
+        
+        batch.set(docRef, firebaseData);
+        batchCount++;
+        
+        // Firestore batch limit is 500 operations
+        if (batchCount >= 400) {
+          await batch.commit();
+          totalMigrated += batchCount;
+          AppLogger.info('Migrated $totalMigrated games so far...', 'GameService');
+          batchCount = 0;
+          
+          // Small delay to avoid overwhelming Firebase
+          await Future.delayed(const Duration(milliseconds: 500));
+        }
+      }
+      
+      // Commit remaining games
+      if (batchCount > 0) {
+        await batch.commit();
+        totalMigrated += batchCount;
+      }
+      
+      AppLogger.info('Migration complete! Migrated $totalMigrated games to Firebase', 'GameService');
+      
+      // Clear cache to force reload
+      clearCache();
+      
+      return true;
+    } catch (e) {
+      AppLogger.error('Error migrating games to Firebase: $e', 'GameService');
+      return false;
     }
-    
-    AppLogger.debug('✓ Pre-warmed cache: $validCount/$processedCount images valid', 'GameService');
-    */
   }
 } 

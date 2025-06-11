@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <!-- Allow all traffic (including cleartext) for debug builds -->
+    <!-- Allow all traffic for debug builds -->
     <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
             <!-- Trust the system default CAs -->
@@ -10,7 +10,7 @@
         </trust-anchors>
     </base-config>
     
-    <!-- Specific domain configurations for game sites -->
+    <!-- Specific domain configurations for game and image sites -->
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">plays.org</domain>
         <domain includeSubdomains="true">html5games.com</domain>
@@ -24,9 +24,11 @@
         <domain includeSubdomains="true">armorgames.com</domain>
         <domain includeSubdomains="true">miniclip.com</domain>
         <domain includeSubdomains="true">y8.com</domain>
+        <domain includeSubdomains="true">famobi.com</domain>
+        <domain includeSubdomains="true">img.cdn.famobi.com</domain>
         <domain includeSubdomains="true">localhost</domain>
         <domain includeSubdomains="true">10.0.2.2</domain>
-        <!-- Allow any domain in debug builds -->
+        <domain includeSubdomains="true">127.0.0.1</domain>
         <trust-anchors>
             <certificates src="system"/>
             <certificates src="user"/>
