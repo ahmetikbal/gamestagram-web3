@@ -8,6 +8,7 @@ import '../../data/models/game_model.dart';
 import '../../application/view_models/game_view_model.dart';
 import '../../application/view_models/auth_view_model.dart';
 import 'game_webview_screen.dart';
+import '../widgets/comment_panel_widget.dart';
 
 class GameDetailsScreen extends StatefulWidget {
   final GameModel game;
@@ -143,6 +144,23 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> {
     }
 
     await gameViewModel.toggleSave(widget.game.id, currentUser.id);
+  }
+
+  /// Opens the comments panel
+  void _openComments() {
+    final gameViewModel = Provider.of<GameViewModel>(context, listen: false);
+    
+    // Load comments for this game
+    gameViewModel.fetchCommentsFast(widget.game.id);
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => CommentPanelWidget(
+        game: widget.game,
+      ),
+    );
   }
 
   @override
@@ -370,6 +388,7 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> {
                                     label: 'Comments',
                                     value: widget.game.commentCount.toString(),
                                     icon: Icons.comment,
+                                    onTap: _openComments,
                                   ),
                                   _buildStatItem(
                                     label: 'Genre',
@@ -575,39 +594,51 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> {
     required String label,
     required String value,
     required IconData icon,
+    VoidCallback? onTap,
   }) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            icon,
-            color: Colors.white,
-            size: 20,
-          ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+                border: onTap != null ? Border.all(
+                  color: Colors.white.withValues(alpha: 0.3),
+                  width: 1,
+                ) : null,
+              ),
+              child: Icon(
+                icon,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              label,
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: Colors.white.withValues(alpha: 0.7),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: GoogleFonts.poppins(
-            fontSize: 16,
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        Text(
-          label,
-          style: GoogleFonts.poppins(
-            fontSize: 12,
-            color: Colors.white.withValues(alpha: 0.7),
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
