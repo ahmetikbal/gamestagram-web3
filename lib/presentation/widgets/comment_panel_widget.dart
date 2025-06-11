@@ -230,50 +230,23 @@ class _CommentPanelWidgetState extends State<CommentPanelWidget> {
                       margin: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(25),
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Colors.white.withOpacity(0.15),
-                            Colors.white.withOpacity(0.08),
-                          ],
-                        ),
+                        color: Colors.grey[700],
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.25),
+                          color: Colors.grey[600]!,
                           width: 1.5,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 20,
-                            offset: const Offset(0, 5),
-                          ),
-                          BoxShadow(
-                            color: Colors.white.withOpacity(0.1),
-                            blurRadius: 10,
-                            offset: const Offset(0, -2),
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
                           ),
                         ],
                       ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(25),
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  Colors.white.withOpacity(0.1),
-                                  Colors.white.withOpacity(0.05),
-                                ],
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: TextField(
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
                                     controller: _commentController,
                                     style: GoogleFonts.poppins(
                                       color: Colors.white,
@@ -375,9 +348,6 @@ class _CommentPanelWidgetState extends State<CommentPanelWidget> {
                                 ),
                               ],
                             ),
-                          ),
-                        ),
-                      ),
                     ),
                   ],
                 ),
@@ -424,12 +394,47 @@ class _FastCommentBubble extends StatelessWidget {
               height: 32,
               margin: const EdgeInsets.only(left: 8, right: 8, bottom: 4),
               child: isFirstInGroup
-                  ? CircleAvatar(
-                      radius: 16,
-                      backgroundColor: theme.colorScheme.primary,
-                      child: Text(
-                        comment.userId.isNotEmpty ? comment.userId[0].toUpperCase() : 'U',
-                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                  ? Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.blue[600]!,
+                            Colors.blue[400]!,
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        border: Border.all(
+                          color: Colors.white,
+                          width: 2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.3),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Text(
+                          comment.username.isNotEmpty ? comment.username[0].toUpperCase() : 'U',
+                          style: const TextStyle(
+                            color: Colors.white, 
+                            fontSize: 13, 
+                            fontWeight: FontWeight.bold,
+                            shadows: [
+                              Shadow(
+                                offset: Offset(0, 1),
+                                blurRadius: 2,
+                                color: Colors.black26,
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     )
                   : null, // Empty space to maintain alignment
@@ -457,12 +462,47 @@ class _FastCommentBubble extends StatelessWidget {
                     height: 32,
                     margin: const EdgeInsets.only(left: 8, right: 8, bottom: 4),
                     child: isFirstInGroup
-                        ? CircleAvatar(
-                            radius: 16,
-                            backgroundColor: theme.colorScheme.primary,
-                            child: Text(
-                              comment.userId.isNotEmpty ? comment.userId[0].toUpperCase() : 'U',
-                              style: const TextStyle(color: Colors.white, fontSize: 12),
+                        ? Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: LinearGradient(
+                                colors: [
+                                  theme.colorScheme.primary,
+                                  theme.colorScheme.secondary,
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 2,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.3),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Center(
+                              child: Text(
+                                comment.username.isNotEmpty ? comment.username[0].toUpperCase() : 'U',
+                                style: const TextStyle(
+                                  color: Colors.white, 
+                                  fontSize: 13, 
+                                  fontWeight: FontWeight.bold,
+                                  shadows: [
+                                    Shadow(
+                                      offset: Offset(0, 1),
+                                      blurRadius: 2,
+                                      color: Colors.black26,
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                           )
                         : null, // Empty space to maintain alignment
@@ -478,40 +518,151 @@ class _FastCommentBubble extends StatelessWidget {
 
   Widget _buildCommentBubble() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: isCurrentUser 
-            ? theme.colorScheme.primary 
-            : theme.colorScheme.surfaceVariant,
+        gradient: isCurrentUser 
+            ? LinearGradient(
+                colors: [
+                  theme.colorScheme.primary,
+                  theme.colorScheme.primary.withOpacity(0.8),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              )
+            : LinearGradient(
+                colors: [
+                  Colors.grey[700]!,
+                  Colors.grey[600]!,
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
         borderRadius: _getBorderRadius(),
+        border: Border.all(
+          color: isCurrentUser 
+              ? theme.colorScheme.primary.withOpacity(0.3)
+              : Colors.grey[500]!.withOpacity(0.4),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isCurrentUser 
+                ? theme.colorScheme.primary.withOpacity(0.3)
+                : Colors.black.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Show username at the top of first comment in group
+          if (isFirstInGroup && !isCurrentUser) ...[
+            Row(
+              children: [
+                Icon(
+                  Icons.person,
+                  size: 14,
+                  color: Colors.white.withOpacity(0.8),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  comment.username.isNotEmpty ? comment.username : 'Unknown User',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    shadows: [
+                      Shadow(
+                        offset: Offset(0, 1),
+                        blurRadius: 2,
+                        color: Colors.black26,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+          ],
+          
+          // Comment content
           Text(
             comment.content ?? comment.text ?? '',
             style: TextStyle(
-              color: isCurrentUser 
-                  ? theme.colorScheme.onPrimary 
-                  : theme.colorScheme.onSurfaceVariant,
-              fontSize: 14,
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+              height: 1.3,
+              shadows: const [
+                Shadow(
+                  offset: Offset(0, 1),
+                  blurRadius: 2,
+                  color: Colors.black26,
+                ),
+              ],
             ),
           ),
-          // Show timestamp only on last comment in group
+          
+          // Show timestamp and username info on last comment in group
           if (isLastInGroup) ...[
-            const SizedBox(height: 4),
-            Align(
-              alignment: isCurrentUser ? Alignment.centerRight : Alignment.centerLeft,
-              child: Text(
-                _formatTimestamp(comment.timestamp),
-                style: TextStyle(
-                  fontSize: 10,
-                  color: isCurrentUser 
-                      ? theme.colorScheme.onPrimary.withOpacity(0.7)
-                      : theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+            const SizedBox(height: 6),
+            Row(
+              mainAxisAlignment: isCurrentUser ? MainAxisAlignment.end : MainAxisAlignment.spaceBetween,
+              children: [
+                // Show username for current user on the left
+                if (isCurrentUser) ...[
+                  Text(
+                    comment.username.isNotEmpty ? comment.username : 'You',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                      shadows: [
+                        Shadow(
+                          offset: Offset(0, 1),
+                          blurRadius: 1,
+                          color: Colors.black26,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                
+                // Timestamp with tooltip for full date/time
+                Tooltip(
+                  message: _formatFullTimestamp(comment.timestamp),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.access_time,
+                        size: 11,
+                        color: Colors.white.withOpacity(0.8),
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        _formatTimestamp(comment.timestamp),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white,
+                          shadows: [
+                            Shadow(
+                              offset: Offset(0, 1),
+                              blurRadius: 1,
+                              color: Colors.black26,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+              ],
             ),
           ],
         ],
@@ -591,10 +742,46 @@ class _FastCommentBubble extends StatelessWidget {
     final now = DateTime.now();
     final difference = now.difference(timestamp);
     
-    if (difference.inDays > 0) return '${difference.inDays}d';
-    if (difference.inHours > 0) return '${difference.inHours}h';
-    if (difference.inMinutes > 0) return '${difference.inMinutes}m';
-    return 'now';
+    if (difference.inDays > 7) {
+      // Show formatted date for older comments
+      return _formatShortDate(timestamp);
+    } else if (difference.inDays > 0) {
+      return '${difference.inDays} day${difference.inDays > 1 ? 's' : ''} ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours} hour${difference.inHours > 1 ? 's' : ''} ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes} min${difference.inMinutes > 1 ? 's' : ''} ago';
+    } else if (difference.inSeconds > 30) {
+      return '${difference.inSeconds} sec ago';
+    }
+    return 'just now';
+  }
+  
+  /// Formats a complete timestamp for tooltips
+  String _formatFullTimestamp(DateTime timestamp) {
+    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    final month = months[timestamp.month - 1];
+    final day = timestamp.day;
+    final year = timestamp.year;
+    final hour = timestamp.hour > 12 ? timestamp.hour - 12 : timestamp.hour == 0 ? 12 : timestamp.hour;
+    final minute = timestamp.minute.toString().padLeft(2, '0');
+    final ampm = timestamp.hour >= 12 ? 'PM' : 'AM';
+    
+    return '$month $day, $year • $hour:$minute $ampm';
+  }
+  
+  /// Formats a short date for older comments
+  String _formatShortDate(DateTime timestamp) {
+    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    final month = months[timestamp.month - 1];
+    final day = timestamp.day;
+    final year = timestamp.year;
+    
+    return '$month $day, $year';
   }
 }
  
