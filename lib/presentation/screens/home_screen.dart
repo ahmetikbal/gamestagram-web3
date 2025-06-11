@@ -23,16 +23,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final gameViewModel = Provider.of<GameViewModel>(context, listen: false);
-      final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-      
-      // Load initial games
-      gameViewModel.loadInitialGames();
-      
-      // Load user-specific Firebase data if user is logged in
-      if (authViewModel.currentUser != null) {
-        gameViewModel.loadUserData(authViewModel.currentUser!.id);
-      }
+      Provider.of<GameViewModel>(context, listen: false).loadInitialGames();
     });
   }
 

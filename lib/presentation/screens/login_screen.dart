@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'dart:ui';
 import '../widgets/animated_game_background.dart';
 import '../../application/view_models/auth_view_model.dart';
-import '../../presentation/screens/home_screen.dart';
+import 'home_screen.dart';
 import 'registration_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -37,7 +37,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (mounted) {
         if (success) {
-          print('[LoginScreen] Login reported success by ViewModel. Relying on main.dart Consumer for navigation.');
+          // Navigate to HomeScreen and clear the navigation stack
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+            (route) => false,
+          );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

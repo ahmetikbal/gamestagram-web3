@@ -8,6 +8,7 @@ import '../../data/models/game_model.dart';
 import '../widgets/animated_game_background.dart';
 import '../screens/game_details_screen.dart';
 import '../screens/edit_profile_screen.dart';
+import '../screens/welcome_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -42,14 +43,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final theme = Theme.of(context);
 
     if (user == null) {
+      // Redirect to welcome screen if user is not logged in
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const WelcomeScreen()),
+          (route) => false,
+        );
+      });
+      
+      // Show loading while redirecting
       return Scaffold(
         body: Center(
-          child: Text(
-            'User not logged in.',
-            style: GoogleFonts.poppins(
-              fontSize: 18,
-              color: Colors.white,
-            ),
+          child: CircularProgressIndicator(
+            color: theme.colorScheme.primary,
           ),
         ),
       );

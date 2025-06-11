@@ -47,7 +47,6 @@ class MyApp extends StatelessWidget {
               );
             }
             
-            // Original logic restored:
             return authViewModel.currentUser != null 
                 ? const HomeScreen() 
                 : const WelcomeScreen();
