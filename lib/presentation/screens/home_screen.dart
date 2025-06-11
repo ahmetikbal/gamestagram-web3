@@ -23,7 +23,16 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<GameViewModel>(context, listen: false).loadInitialGames();
+      final gameViewModel = Provider.of<GameViewModel>(context, listen: false);
+      final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+      
+      gameViewModel.loadInitialGames();
+      
+      // Sync saved games if user is already logged in
+      final currentUser = authViewModel.currentUser;
+      if (currentUser != null) {
+        gameViewModel.syncUserGameStates(currentUser.id);
+      }
     });
   }
 

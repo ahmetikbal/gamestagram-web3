@@ -23,14 +23,16 @@ class SocialService {
       final userData = userDoc.data() as Map<String, dynamic>?;
       final likedGames = List<String>.from(userData?['likedGames'] ?? []);
 
-      // Transaction to ensure atomic updates
+      // Transaction to ensure atomic updates of both Games and Users collections
       return await _firestore.runTransaction<bool>((transaction) async {
-        // Get current game data
+        // Get current game data and user data
         final gameDoc = await transaction.get(gameRef);
         final gameData = gameDoc.data() as Map<String, dynamic>?;
+        final userDocInTransaction = await transaction.get(userRef);
+        final userDataInTransaction = userDocInTransaction.data() as Map<String, dynamic>?;
 
+        // Initialize game document if it doesn't exist
         if (gameData == null) {
-          // Initialize game document if it doesn't exist
           transaction.set(gameRef, {
             'likeCount': 0,
             'commentCount': 0,
@@ -38,29 +40,43 @@ class SocialService {
           });
         }
 
+        // Ensure user document has required count fields (for existing users)
+        if (userDataInTransaction != null && 
+            (!userDataInTransaction.containsKey('likeCount') || 
+             !userDataInTransaction.containsKey('commentCount'))) {
+          transaction.update(userRef, {
+            'likeCount': userDataInTransaction['likeCount'] ?? 0,
+            'commentCount': userDataInTransaction['commentCount'] ?? 0,
+          });
+        }
+
         final bool isLiked = likedGames.contains(gameId);
 
         if (isLiked) {
-          // Unlike: Remove gameId from user's likedGames and decrement game's likeCount
+          // Unlike: Update both Users and Games collections
           transaction.update(userRef, {
             'likedGames': FieldValue.arrayRemove([gameId]),
-            'likeCount': FieldValue.increment(-1),
+            'likeCount': FieldValue.increment(-1), // User's total like count
           });
 
-          transaction.update(gameRef, {'likeCount': FieldValue.increment(-1)});
+          transaction.update(gameRef, {
+            'likeCount': FieldValue.increment(-1), // Game's total like count
+          });
 
-          AppLogger.debug('Game $gameId unliked by user $userId', 'SocialService');
+          AppLogger.debug('Game $gameId unliked by user $userId - Updated both Users and Games collections', 'SocialService');
           return false;
         } else {
-          // Like: Add gameId to user's likedGames and increment game's likeCount
+          // Like: Update both Users and Games collections
           transaction.update(userRef, {
             'likedGames': FieldValue.arrayUnion([gameId]),
-            'likeCount': FieldValue.increment(1),
+            'likeCount': FieldValue.increment(1), // User's total like count
           });
 
-          transaction.update(gameRef, {'likeCount': FieldValue.increment(1)});
+          transaction.update(gameRef, {
+            'likeCount': FieldValue.increment(1), // Game's total like count
+          });
 
-          AppLogger.debug('Game $gameId liked by user $userId', 'SocialService');
+          AppLogger.debug('Game $gameId liked by user $userId - Updated both Users and Games collections', 'SocialService');
           return true;
         }
       });
@@ -155,8 +171,9 @@ class SocialService {
   ) async {
     try {
       if (text.isEmpty || text.length > 200) {
-        print(
+        AppLogger.warning(
           '[SocialService] Comment validation failed for game $gameId by user $userId',
+          'SocialService',
         );
         return null;
       }
@@ -169,38 +186,74 @@ class SocialService {
       final username = userData['username'] as String;
 
       // Get references
+      final userRef = _usersCollection.doc(userId);
       final gameRef = _gamesCollection.doc(gameId);
       final commentsRef = gameRef.collection('comments');
 
-      // Create new comment document
-      final timestamp = DateTime.now();
-      final commentRef = await commentsRef.add({
-        'userId': userId,
-        'username': username,
-        'text': text,
-        'content': text,
-        'timestamp': timestamp.toIso8601String(),
-        'type': 'comment',
+      // Use transaction to ensure atomic updates of both Users and Games collections
+      return await _firestore.runTransaction<InteractionModel?>((transaction) async {
+        // Ensure user document has required count fields (for existing users)
+        final userDocInTransaction = await transaction.get(userRef);
+        final userDataInTransaction = userDocInTransaction.data() as Map<String, dynamic>?;
+        
+        if (userDataInTransaction != null && 
+            (!userDataInTransaction.containsKey('commentCount') || 
+             !userDataInTransaction.containsKey('likeCount'))) {
+          transaction.update(userRef, {
+            'likeCount': userDataInTransaction['likeCount'] ?? 0,
+            'commentCount': userDataInTransaction['commentCount'] ?? 0,
+          });
+        }
+
+        // Ensure game document exists and has count fields
+        final gameDoc = await transaction.get(gameRef);
+        final gameData = gameDoc.data() as Map<String, dynamic>?;
+        
+        if (gameData == null) {
+          transaction.set(gameRef, {
+            'likeCount': 0,
+            'commentCount': 1, // Will be 1 after this comment
+            'playCount': 0,
+          });
+        } else {
+          // Update game's comment count
+          transaction.update(gameRef, {
+            'commentCount': FieldValue.increment(1), // Game's total comment count
+          });
+        }
+
+        // Update user's comment count
+        transaction.update(userRef, {
+          'commentCount': FieldValue.increment(1), // User's total comment count
+        });
+
+        // Note: We can't add to subcollection in transaction, so we'll do it after
+        return null; // Placeholder, we'll create the comment after transaction
+      }).then((_) async {
+        // Create new comment document (outside transaction since subcollections aren't supported in transactions)
+        final timestamp = DateTime.now();
+        final commentRef = await commentsRef.add({
+          'userId': userId,
+          'username': username,
+          'text': text,
+          'content': text,
+          'timestamp': timestamp.toIso8601String(),
+          'type': 'comment',
+        });
+
+        AppLogger.debug('Comment added to game $gameId by user $userId - Updated both Users and Games collections', 'SocialService');
+
+        // Create and return InteractionModel
+        return InteractionModel(
+          id: commentRef.id,
+          userId: userId,
+          username: username,
+          text: text,
+          content: text,
+          timestamp: timestamp,
+          type: InteractionType.comment,
+        );
       });
-
-      // Update user's comment count
-      await _usersCollection.doc(userId).update({
-        'commentCount': FieldValue.increment(1),
-      });
-
-      // Update game's comment count
-      await gameRef.update({'commentCount': FieldValue.increment(1)});
-
-      // Create and return InteractionModel
-      return InteractionModel(
-        id: commentRef.id,
-        userId: userId,
-        username: username,
-        text: text,
-        content: text,
-        timestamp: timestamp,
-        type: InteractionType.comment,
-      );
     } catch (e) {
       AppLogger.error('[SocialService] Error adding comment: $e', 'SocialService');
       return null;
@@ -309,6 +362,37 @@ class SocialService {
     } catch (e) {
       AppLogger.error('[SocialService] Error getting user comment count: $e', 'SocialService');
       return 0;
+    }
+  }
+  
+  /// Get comprehensive user statistics from Users collection
+  Future<Map<String, int>> getUserStats(String userId) async {
+    try {
+      final userDoc = await _usersCollection.doc(userId).get();
+      final userData = userDoc.data() as Map<String, dynamic>?;
+      
+      if (userData == null) {
+        return {
+          'likeCount': 0,
+          'commentCount': 0,
+          'savedGamesCount': 0,
+        };
+      }
+      
+      final savedGames = List<String>.from(userData['savedGames'] ?? []);
+      
+      return {
+        'likeCount': userData['likeCount'] ?? 0,
+        'commentCount': userData['commentCount'] ?? 0,
+        'savedGamesCount': savedGames.length,
+      };
+    } catch (e) {
+      AppLogger.error('[SocialService] Error getting user stats: $e', 'SocialService');
+      return {
+        'likeCount': 0,
+        'commentCount': 0,
+        'savedGamesCount': 0,
+      };
     }
   }
 

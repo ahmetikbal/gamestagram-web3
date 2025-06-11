@@ -219,6 +219,51 @@ class GameViewModel extends ChangeNotifier {
       AppLogger.error('Error in background social data loading', 'GameViewModel', e);
     }
   }
+  
+
+  /// Syncs saved and liked games with current user (call this after login)
+  Future<void> syncUserGameStates(String userId) async {
+    if (_games.isEmpty) return;
+    
+    try {
+      // Get saved game IDs for the user
+      final savedGameIds = await _socialService.getSavedGameIds(userId);
+      AppLogger.debug('Found ${savedGameIds.length} saved games for user $userId', 'GameViewModel');
+      
+      // Update saved states for all games
+      bool hasUpdates = false;
+      for (var game in _games) {
+        final wasSaved = game.isSavedByCurrentUser;
+        game.isSavedByCurrentUser = savedGameIds.contains(game.id);
+        
+        if (wasSaved != game.isSavedByCurrentUser) {
+          hasUpdates = true;
+        }
+        
+        // Check liked state as well
+        try {
+          final isLiked = await _socialService.isGameLikedByUser(game.id, userId);
+          if (game.isLikedByCurrentUser != isLiked) {
+            game.isLikedByCurrentUser = isLiked;
+            hasUpdates = true;
+          }
+        } catch (e) {
+          AppLogger.error('Error checking liked state for game ${game.id}', 'GameViewModel', e);
+        }
+      }
+      
+      // Update saved games list
+      _savedGames = _games.where((game) => game.isSavedByCurrentUser).toList();
+      
+      if (hasUpdates) {
+        notifyListeners();
+        AppLogger.info('Synced user game states - ${_savedGames.length} saved games', 'GameViewModel');
+      }
+      
+    } catch (e) {
+      AppLogger.error('Error syncing user game states', 'GameViewModel', e);
+    }
+  }
 
   /// Loads additional games with optimized performance for infinite scrolling
   Future<void> fetchMoreGames({int? count}) async {

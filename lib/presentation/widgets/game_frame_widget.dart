@@ -171,110 +171,133 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
     }
   }
 
-  /// Creates an image widget for displaying validated game images
-  /// Since images are pre-validated at service level, this focuses on clean display
+  /// Creates a responsive image widget that adapts to image dimensions and screen size
   Widget _buildRobustImage(String imageUrl, ThemeData theme, bool isGlobalFullView) {
+    final screenSize = MediaQuery.of(context).size;
+    final maxImageHeight = screenSize.height * 0.4; // 40% of screen height
+    final maxImageWidth = screenSize.width * 0.85; // 85% of screen width
+    
     // Check if this is a local asset path
     if (imageUrl.startsWith('images/')) {
       return Center(
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Image.asset(
-            'assets/$imageUrl',
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                width: 200,
-                height: 200,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  Icons.videogame_asset,
-                  size: 140,
-                  color: theme.colorScheme.primary.withOpacity(0.6),
-                ),
-              );
-            },
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: maxImageHeight,
+            maxWidth: maxImageWidth,
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.asset(
+              'assets/$imageUrl',
+              fit: BoxFit.contain, // Changed from cover to contain to preserve aspect ratio
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  constraints: BoxConstraints(
+                    maxHeight: maxImageHeight * 0.6,
+                    maxWidth: maxImageWidth * 0.6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.videogame_asset,
+                    size: 80,
+                    color: theme.colorScheme.primary.withOpacity(0.6),
+                  ),
+                );
+              },
+            ),
           ),
         ),
       );
     }
     
-    // For network images - use simple, reliable approach
-    return Container(
-      width: 200,
-      height: 200,
-      decoration: BoxDecoration(
-        color: theme.colorScheme.primary.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: theme.colorScheme.primary.withOpacity(0.1),
-          width: 1,
+    // For network images - responsive container that adapts to image
+    return Center(
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight: maxImageHeight,
+          maxWidth: maxImageWidth,
         ),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Image.network(
-          imageUrl,
-          fit: BoxFit.cover,
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) {
-              return child;
-            }
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(
-                  value: loadingProgress.expectedTotalBytes != null
-                        ? loadingProgress.cumulativeBytesLoaded / 
-                          loadingProgress.expectedTotalBytes!
-                      : null,
-                    color: theme.colorScheme.primary.withOpacity(0.7),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.primary.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: theme.colorScheme.primary.withOpacity(0.1),
+            width: 1,
+          ),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.network(
+            imageUrl,
+            fit: BoxFit.contain, // Changed from cover to contain to show full image
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) {
+                return child;
+              }
+              return Container(
+                height: maxImageHeight * 0.6,
+                width: maxImageWidth * 0.6,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(
+                        value: loadingProgress.expectedTotalBytes != null
+                              ? loadingProgress.cumulativeBytesLoaded / 
+                                loadingProgress.expectedTotalBytes!
+                            : null,
+                        color: theme.colorScheme.primary.withOpacity(0.7),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Loading...',
+                        style: TextStyle(
+                          color: theme.colorScheme.primary.withOpacity(0.7),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Loading...',
-                    style: TextStyle(
-                      color: theme.colorScheme.primary.withOpacity(0.7),
-                      fontSize: 12,
-                    ),
+              );
+            },
+            errorBuilder: (context, error, stackTrace) {
+              // Log the error for debugging but don't crash the app
+              print('Image failed to load: $imageUrl - $error');
+              
+              return Container(
+                height: maxImageHeight * 0.6,
+                width: maxImageWidth * 0.6,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.videogame_asset,
+                        size: 80,
+                        color: theme.colorScheme.primary.withOpacity(0.6),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        widget.game.title,
+                        style: TextStyle(
+                          color: theme.colorScheme.primary.withOpacity(0.8),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            );
-          },
-          errorBuilder: (context, error, stackTrace) {
-            // Log the error for debugging but don't crash the app
-            print('Image failed to load: $imageUrl - $error');
-            
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                Icons.videogame_asset,
-                    size: 80,
-                color: theme.colorScheme.primary.withOpacity(0.6),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    widget.game.title,
-                    style: TextStyle(
-                      color: theme.colorScheme.primary.withOpacity(0.8),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            );
-          },
+                ),
+              );
+            },
+          ),
         ),
       ),
     );
@@ -344,10 +367,9 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Image at the top
+                    // Image at the top - now responsive
                     if (widget.game.imageUrl != null && widget.game.imageUrl!.isNotEmpty)
                       Container(
-                        height: 300,
                         margin: const EdgeInsets.only(bottom: 12),
                         child: _buildRobustImage(widget.game.imageUrl!, theme, isGlobalFullView),
                       ),

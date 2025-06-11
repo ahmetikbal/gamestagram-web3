@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'dart:ui';
 import '../widgets/animated_game_background.dart';
 import '../../application/view_models/auth_view_model.dart';
+import '../../application/view_models/game_view_model.dart';
 import 'home_screen.dart';
 import 'registration_screen.dart';
 
@@ -37,6 +38,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (mounted) {
         if (success) {
+          // Sync user game states after successful login
+          final gameViewModel = Provider.of<GameViewModel>(context, listen: false);
+          final currentUser = authViewModel.currentUser;
+          if (currentUser != null) {
+            gameViewModel.syncUserGameStates(currentUser.id);
+          }
+          
           // Navigate to HomeScreen and clear the navigation stack
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(builder: (context) => const HomeScreen()),

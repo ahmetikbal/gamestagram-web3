@@ -198,7 +198,7 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> {
                 child: widget.game.imageUrl != null && widget.game.imageUrl!.isNotEmpty
                     ? Stack(
                         children: [
-                          // Game image
+                          // Game image - responsive to screen size
                           Image.network(
                             widget.game.imageUrl!,
                             fit: BoxFit.cover,
