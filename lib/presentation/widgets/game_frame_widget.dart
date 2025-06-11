@@ -11,7 +11,7 @@ import '../screens/game_details_screen.dart';
 import '../../utils/logger.dart';
 
 /// A comprehensive game display widget that handles game presentation, interaction, and playback
-/// 
+///
 /// This widget provides:
 /// - Game information display with background images or gradients
 /// - WebView-based game playback with lifecycle management
@@ -23,17 +23,19 @@ class GameFrameWidget extends StatefulWidget {
   final GameModel game;
   final VoidCallback? onPlay;
 
-  const GameFrameWidget({Key? key, required this.game, this.onPlay}) : super(key: key);
+  const GameFrameWidget({Key? key, required this.game, this.onPlay})
+    : super(key: key);
 
   @override
   _GameFrameWidgetState createState() => _GameFrameWidgetState();
 }
 
-class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingObserver {
+class _GameFrameWidgetState extends State<GameFrameWidget>
+    with WidgetsBindingObserver {
   bool _isGameLoaded = false;
   bool _isGameVisible = false;
   WebViewController? _controller;
-  
+
   // Performance optimization: Simplified state management
 
   @override
@@ -54,7 +56,8 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (_isGameLoaded && _controller != null) {
-      if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      if (state == AppLifecycleState.paused ||
+          state == AppLifecycleState.inactive) {
         _pauseWebView();
       } else if (state == AppLifecycleState.resumed && _isGameVisible) {
         _resumeWebView();
@@ -66,9 +69,9 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
   /// Handles first-time initialization and proper cleanup
   void _toggleGameVisibility() {
     if (!mounted) return; // Prevent setState after dispose
-    
+
     final gameViewModel = Provider.of<GameViewModel>(context, listen: false);
-    
+
     setState(() {
       if (!_isGameVisible) {
         // First time showing the game
@@ -89,22 +92,23 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
   void _initializeWebView() {
     if (_isGameLoaded) return;
 
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onNavigationRequest: (request) => NavigationDecision.navigate,
-          onPageFinished: (url) {
-            // Add mounted check to prevent setState after dispose
-            if (mounted) {
-              setState(() {
-                _isGameLoaded = true;
-              });
-            }
-          },
-        ),
-      )
-      ..loadRequest(Uri.parse(widget.game.gameUrl ?? 'about:blank'));
+    _controller =
+        WebViewController()
+          ..setJavaScriptMode(JavaScriptMode.unrestricted)
+          ..setNavigationDelegate(
+            NavigationDelegate(
+              onNavigationRequest: (request) => NavigationDecision.navigate,
+              onPageFinished: (url) {
+                // Add mounted check to prevent setState after dispose
+                if (mounted) {
+                  setState(() {
+                    _isGameLoaded = true;
+                  });
+                }
+              },
+            ),
+          )
+          ..loadRequest(Uri.parse(widget.game.gameUrl ?? 'about:blank'));
 
     _isGameLoaded = true;
   }
@@ -173,7 +177,11 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
 
   /// Creates an image widget for displaying validated game images
   /// Since images are pre-validated at service level, this focuses on clean display
-  Widget _buildRobustImage(String imageUrl, ThemeData theme, bool isGlobalFullView) {
+  Widget _buildRobustImage(
+    String imageUrl,
+    ThemeData theme,
+    bool isGlobalFullView,
+  ) {
     // Check if this is a local asset path
     if (imageUrl.startsWith('images/')) {
       return Center(
@@ -201,7 +209,7 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
         ),
       );
     }
-    
+
     // For network images - use simple, reliable approach
     return Container(
       width: 200,
@@ -228,10 +236,11 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   CircularProgressIndicator(
-                    value: loadingProgress.expectedTotalBytes != null
-                        ? loadingProgress.cumulativeBytesLoaded / 
-                          loadingProgress.expectedTotalBytes!
-                        : null,
+                    value:
+                        loadingProgress.expectedTotalBytes != null
+                            ? loadingProgress.cumulativeBytesLoaded /
+                                loadingProgress.expectedTotalBytes!
+                            : null,
                     color: theme.colorScheme.primary.withOpacity(0.7),
                   ),
                   const SizedBox(height: 8),
@@ -249,7 +258,7 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
           errorBuilder: (context, error, stackTrace) {
             // Log the error for debugging but don't crash the app
             print('Image failed to load: $imageUrl - $error');
-            
+
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -290,20 +299,26 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
 
     // Get global full view state
     final bool isGlobalFullView = gameViewModel.isGlobalFullViewEnabled;
-    
+
     // Get safe area padding for just the status bar
     final safeAreaTop = MediaQuery.of(context).padding.top;
     // Use a smaller offset since we no longer have an app bar
     final topOffset = safeAreaTop + 15;
 
     // Check if game is saved
-    final bool isSaved = currentUser != null ? 
-      gameViewModel.isGameSavedByUserSync(widget.game.id, currentUser.id) : false;
+    final bool isSaved =
+        currentUser != null
+            ? gameViewModel.isGameSavedByUserSync(
+              widget.game.id,
+              currentUser.id,
+            )
+            : false;
 
     void _shareGame() {
       final String gameDeepLink = 'gamestagram://game/${widget.game.id}';
-      final String message = 'Check out this game: ${widget.game.title}\n$gameDeepLink';
-      
+      final String message =
+          'Check out this game: ${widget.game.title}\n$gameDeepLink';
+
       Share.share(message);
     }
 
@@ -322,13 +337,13 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
         ),
       );
     }
-    
+
     // Game content - WebView when visible, otherwise nothing
     Widget gameLayer() {
       if (!_isGameVisible || !_isGameLoaded || _controller == null) {
         return const SizedBox.shrink();
       }
-      
+
       return WebViewWidget(controller: _controller!);
     }
 
@@ -345,13 +360,18 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     // Image at the top
-                    if (widget.game.imageUrl != null && widget.game.imageUrl!.isNotEmpty)
+                    if (widget.game.imageUrl != null &&
+                        widget.game.imageUrl!.isNotEmpty)
                       Container(
                         height: 300,
                         margin: const EdgeInsets.only(bottom: 12),
-                        child: _buildRobustImage(widget.game.imageUrl!, theme, isGlobalFullView),
+                        child: _buildRobustImage(
+                          widget.game.imageUrl!,
+                          theme,
+                          isGlobalFullView,
+                        ),
                       ),
-                    
+
                     // Title
                     Text(
                       widget.game.title,
@@ -368,7 +388,7 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
                       ),
                     ),
                     const SizedBox(height: 8),
-                    
+
                     // Description
                     Text(
                       widget.game.description,
@@ -387,11 +407,14 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
                       ),
                     ),
                     const SizedBox(height: 16),
-                    
+
                     // Play button
                     ElevatedButton.icon(
                       onPressed: _toggleGameVisibility,
-                      icon: Icon(Icons.play_circle_outline, color: theme.colorScheme.onPrimary),
+                      icon: Icon(
+                        Icons.play_circle_outline,
+                        color: theme.colorScheme.onPrimary,
+                      ),
                       label: Text(
                         'Play Game',
                         style: theme.textTheme.labelLarge?.copyWith(
@@ -400,7 +423,10 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: theme.colorScheme.primary,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 12,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -410,7 +436,7 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
                 ),
               ),
             ),
-          
+
           // Control buttons at top
           Positioned(
             top: topOffset,
@@ -418,8 +444,8 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
             child: Row(
               children: [
                 // Fullscreen button removed as requested
-                
-                                    // Enhanced close/pause game button (only when game is visible)
+
+                // Enhanced close/pause game button (only when game is visible)
                 if (_isGameVisible)
                   Material(
                     color: Colors.transparent,
@@ -454,7 +480,7 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
                       ),
                     ),
                   ),
-                
+
                 // Game details button (when game is not visible)
                 if (!_isGameVisible)
                   Material(
@@ -468,7 +494,9 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => GameDetailsScreen(game: widget.game),
+                              builder:
+                                  (context) =>
+                                      GameDetailsScreen(game: widget.game),
                             ),
                           );
                         },
@@ -501,19 +529,23 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
               ],
             ),
           ),
-          
+
           // Social interaction buttons
           Positioned(
             right: 10,
-            bottom: 10, 
+            bottom: 10,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Consumer<GameViewModel>(
                   builder: (context, gvm, child) {
-                    bool isLiked = currentUser != null 
-                        ? gvm.isGameLikedByUserSync(widget.game.id, currentUser.id)
-                        : false;
+                    bool isLiked =
+                        currentUser != null
+                            ? gvm.isGameLikedByUserSync(
+                              widget.game.id,
+                              currentUser.id,
+                            )
+                            : false;
                     int currentLikeCount = gvm.getGameLikeCount(widget.game.id);
                     return Column(
                       children: [
@@ -521,10 +553,15 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
                         GestureDetector(
                           onTap: () {
                             if (currentUser != null) {
-                              Provider.of<GameViewModel>(context, listen: false).toggleLikeGame(widget.game.id, currentUser.id);
+                              Provider.of<GameViewModel>(
+                                context,
+                                listen: false,
+                              ).toggleLikeGame(widget.game.id, currentUser.id);
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Please login to like games')),
+                                const SnackBar(
+                                  content: Text('Please login to like games'),
+                                ),
                               );
                             }
                           },
@@ -532,18 +569,26 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
                             duration: const Duration(milliseconds: 200),
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: isLiked ? primaryAccentColor.withOpacity(0.9) : Colors.black.withOpacity(0.3),
+                              color:
+                                  isLiked
+                                      ? primaryAccentColor.withOpacity(0.9)
+                                      : Colors.black.withOpacity(0.3),
                               borderRadius: BorderRadius.circular(16),
                               boxShadow: [
                                 BoxShadow(
-                                  color: isLiked ? primaryAccentColor.withOpacity(0.5) : Colors.black.withOpacity(0.2),
+                                  color:
+                                      isLiked
+                                          ? primaryAccentColor.withOpacity(0.5)
+                                          : Colors.black.withOpacity(0.2),
                                   blurRadius: 8,
                                   offset: const Offset(0, 2),
-                                )
+                                ),
                               ],
                             ),
                             child: Icon(
-                              isLiked ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
+                              isLiked
+                                  ? Icons.favorite_rounded
+                                  : Icons.favorite_outline_rounded,
                               color: Colors.white,
                               size: 26,
                             ),
@@ -551,7 +596,7 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          currentLikeCount.toString(), 
+                          currentLikeCount.toString(),
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
@@ -566,7 +611,7 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
                         ),
                       ],
                     );
-                  }
+                  },
                 ),
                 const SizedBox(height: 16),
                 // Modern Comment button
@@ -599,17 +644,34 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
                           color: Colors.black.withOpacity(0.2),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
-                        )
+                        ),
                       ],
                     ),
                     child: const Icon(
-                      Icons.chat_bubble_outline_rounded, 
-                      color: Colors.white, 
+                      Icons.chat_bubble_outline_rounded,
+                      color: Colors.white,
                       size: 26,
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 4), // Add space between button and count
+                Text(
+                  widget.game.commentCount.toString(),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    shadows: [
+                      Shadow(
+                        offset: const Offset(1, 1),
+                        blurRadius: 2,
+                        color: Colors.black.withOpacity(0.7),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(
+                  height: 12,
+                ), // Add some additional spacing after the count
                 // Modern Share button
                 GestureDetector(
                   onTap: _shareGame,
@@ -623,12 +685,12 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
                           color: Colors.black.withOpacity(0.2),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
-                        )
+                        ),
                       ],
                     ),
                     child: const Icon(
-                      Icons.share_rounded, 
-                      color: Colors.white, 
+                      Icons.share_rounded,
+                      color: Colors.white,
                       size: 26,
                     ),
                   ),
@@ -638,38 +700,50 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
                 GestureDetector(
                   onTap: () {
                     if (currentUser != null) {
-                      Provider.of<GameViewModel>(context, listen: false)
-                          .toggleSaveGame(widget.game.id, currentUser.id);
+                      Provider.of<GameViewModel>(
+                        context,
+                        listen: false,
+                      ).toggleSaveGame(widget.game.id, currentUser.id);
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Please login to save games')),
+                        const SnackBar(
+                          content: Text('Please login to save games'),
+                        ),
                       );
                     }
-                  }, 
+                  },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: isSaved ? primaryAccentColor.withOpacity(0.9) : Colors.black.withOpacity(0.3),
+                      color:
+                          isSaved
+                              ? primaryAccentColor.withOpacity(0.9)
+                              : Colors.black.withOpacity(0.3),
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: isSaved ? primaryAccentColor.withOpacity(0.5) : Colors.black.withOpacity(0.2),
+                          color:
+                              isSaved
+                                  ? primaryAccentColor.withOpacity(0.5)
+                                  : Colors.black.withOpacity(0.2),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
-                        )
+                        ),
                       ],
                     ),
                     child: Icon(
-                      isSaved ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded, 
-                      color: Colors.white, 
+                      isSaved
+                          ? Icons.bookmark_rounded
+                          : Icons.bookmark_outline_rounded,
+                      color: Colors.white,
                       size: 26,
                     ),
                   ),
                 ),
               ],
             ),
-          )
+          ),
         ],
       );
     }
@@ -685,7 +759,7 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
             color: Colors.black.withOpacity(0.3),
             blurRadius: 8,
             offset: const Offset(0, 4),
-          )
+          ),
         ],
       ),
       clipBehavior: Clip.antiAlias,
@@ -694,10 +768,10 @@ class _GameFrameWidgetState extends State<GameFrameWidget> with WidgetsBindingOb
         children: [
           // Background layer (image or gradient)
           backgroundLayer(),
-          
+
           // Game layer (WebView when visible)
           gameLayer(),
-          
+
           // UI layer (controls and info)
           uiLayer(),
         ],
