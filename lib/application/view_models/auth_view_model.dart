@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../services/auth_service.dart'; // Adjust path
 import '../../data/models/user_model.dart'; // Adjust path
 import '../../utils/logger.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AuthViewModel extends ChangeNotifier {
   final AuthService _authService = AuthService();
@@ -26,7 +28,10 @@ class AuthViewModel extends ChangeNotifier {
     final user = await _authService.tryAutoLogin();
     if (user != null) {
       _currentUser = user;
-      AppLogger.info('Auto-login successful. User: ${_currentUser?.username}', 'AuthViewModel');
+      AppLogger.info(
+        'Auto-login successful. User: ${_currentUser?.username}',
+        'AuthViewModel',
+      );
     } else {
       AppLogger.warning('Auto-login failed or no saved user.', 'AuthViewModel');
     }
@@ -34,6 +39,7 @@ class AuthViewModel extends ChangeNotifier {
     notifyListeners(); // Notify listeners regardless of outcome to update UI
   }
 
+  //Helper methods to manage loading and error states
   void _setLoading(bool loading) {
     _isLoading = loading;
     notifyListeners();
@@ -122,41 +128,75 @@ class AuthViewModel extends ChangeNotifier {
     required String currentPassword,
     String? newPassword,
   }) async {
-    if (_currentUser == null) {
-      _errorMessage = 'No user logged in';
-      notifyListeners();
-      return false;
-    }
-
     _setLoading(true);
-    _clearError();
-    
-    print('[AuthViewModel] Updating profile for user: ${_currentUser!.username}');
-    
-    final response = await _authService.updateProfile(
-      userId: _currentUser!.id,
-      username: username,
-      email: email,
-      currentPassword: currentPassword,
-      newPassword: newPassword,
-    );
-    
-    _setLoading(false);
-    
-    if (response['success']) {
-      // Update the current user data
-      _currentUser = _currentUser!.copyWith(
-        username: username,
-        email: email,
+    _errorMessage = null;
+
+    try {
+      // Verify current password is correct before making changes
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        _errorMessage = 'User not logged in';
+        _setLoading(false);
+        return false;
+      }
+
+      // Create credential to re-authenticate
+      final credential = EmailAuthProvider.credential(
+        email: user.email!,
+        password: currentPassword,
       );
-      print('[AuthViewModel] Profile update successful. Updated user: ${_currentUser?.username}');
+
+      // Re-authenticate
+      await user.reauthenticateWithCredential(credential);
+
+      // 1. Update Auth email if changed
+      if (email != user.email) {
+        await user.updateEmail(email);
+      }
+
+      // 2. Update password if provided
+      if (newPassword != null && newPassword.isNotEmpty) {
+        await user.updatePassword(newPassword);
+      }
+
+      // 3. Update Firestore user document
+      await FirebaseFirestore.instance
+          .collection('Users')
+          .doc(user.uid)
+          .update({
+            'username': username,
+            'email': email,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+
+      // 4. Update local user data
+      _currentUser = _currentUser?.copyWith(username: username, email: email);
+
       notifyListeners();
+      _setLoading(false);
       return true;
-    } else {
-      _errorMessage = response['message'];
-      print('[AuthViewModel] Profile update error: $_errorMessage');
-      notifyListeners();
+    } catch (e) {
+      AppLogger.error('Profile update error: $e', 'AuthViewModel');
+      _errorMessage = _getErrorMessage(e);
+      _setLoading(false);
       return false;
     }
+  }
+
+  // Helper method to parse Firebase errors
+  String _getErrorMessage(dynamic error) {
+    if (error is FirebaseAuthException) {
+      switch (error.code) {
+        case 'wrong-password':
+          return 'Current password is incorrect';
+        case 'requires-recent-login':
+          return 'Please log in again before updating your profile';
+        case 'email-already-in-use':
+          return 'This email is already in use by another account';
+        default:
+          return error.message ?? 'An unknown error occurred';
+      }
+    }
+    return error.toString();
   }
 }
