@@ -65,6 +65,15 @@ class GameViewModel extends ChangeNotifier {
     _currentlyPlayingGameId = gameId;
     notifyListeners();
   }
+  
+  /// Shuffles the current games list for a new random order
+  void shuffleCurrentGames() {
+    if (_games.isNotEmpty) {
+      _games.shuffle();
+      AppLogger.info('Shuffled ${_games.length} games for new random order', 'GameViewModel');
+      notifyListeners();
+    }
+  }
 
   void _setLoading(bool loading, {bool notify = true}) {
     _isLoading = loading;
@@ -89,11 +98,11 @@ class GameViewModel extends ChangeNotifier {
     
     _setLoading(true);
     try {
-      // Get all games but only process a small subset
-      final allGames = await _gameService.getAllGames();
-      AppLogger.debug('Got ${allGames.length} total games from service', 'GameViewModel');
+      // Use fast fetch with randomization for initial load
+      final initialGames = await _gameService.fetchGamesFast(count: count ?? _initialLoadCount);
+      AppLogger.debug('Got ${initialGames.length} random games from service', 'GameViewModel');
       
-      if (allGames.isEmpty) {
+      if (initialGames.isEmpty) {
         AppLogger.warning('No games available from Firebase. Attempting migration...', 'GameViewModel');
         
         // Try to migrate from JSON to Firebase
@@ -118,8 +127,8 @@ class GameViewModel extends ChangeNotifier {
         return;
       }
       
-      // Process games normally
-      final processedGames = await _processGames(allGames, count ?? _initialLoadCount);
+      // Process games normally (already randomized by fetchGamesFast)
+      final processedGames = await _processGames(initialGames, count ?? _initialLoadCount);
       _games = processedGames;
       
       // Update UI immediately with basic game data
@@ -140,6 +149,9 @@ class GameViewModel extends ChangeNotifier {
   
   /// Helper method to process games
   Future<List<GameModel>> _processGames(List<GameModel> allGames, int requestedCount) async {
+    // RANDOMIZE: Shuffle all games first for random loading
+    allGames.shuffle();
+    
     // Take only a manageable number of games and filter them
     final gamesToProcess = allGames
         .where((game) => 
