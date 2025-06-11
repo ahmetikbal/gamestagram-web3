@@ -28,94 +28,7 @@ class _GameWebViewScreenState extends State<GameWebViewScreen> with WidgetsBindi
   bool _triedFallback = false;
   bool _isPaused = false;
 
-  /// Loads a simple HTML5 game (circle clicker) when external URLs fail
-  void _loadFallbackGame() {
-    if (_triedFallback) return;
 
-    _triedFallback = true;
-    print('Loading fallback HTML game');
-
-    // Simple clicker game HTML
-    const String fallbackGameHtml = '''
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-          body { margin: 0; padding: 20px; font-family: Arial, sans-serif; text-align: center; 
-                 background-color: #121212; color: white; touch-action: manipulation; }
-          #game-area { margin: 20px auto; position: relative; width: 300px; height: 300px; 
-                      border: 2px solid #444; border-radius: 8px; overflow: hidden; }
-          .target { position: absolute; width: 30px; height: 30px; background-color: #ff4081;
-                   border-radius: 50%; cursor: pointer; }
-          #score { font-size: 24px; margin: 20px; }
-          button { background: #2196F3; color: white; border: none; padding: 10px 20px;
-                  border-radius: 4px; font-size: 16px; margin-top: 10px; cursor: pointer; }
-        </style>
-      </head>
-      <body>
-        <h1>Circle Clicker</h1>
-        <div id="score">Score: 0</div>
-        <div id="game-area"></div>
-        <button id="restart">Restart Game</button>
-
-        <script>
-          const gameArea = document.getElementById('game-area');
-          const scoreDisplay = document.getElementById('score');
-          const restartButton = document.getElementById('restart');
-          let score = 0;
-
-          function createTarget() {
-            const target = document.createElement('div');
-            target.className = 'target';
-
-            // Random position
-            const maxX = gameArea.clientWidth - 30;
-            const maxY = gameArea.clientHeight - 30;
-            target.style.left = Math.floor(Math.random() * maxX) + 'px';
-            target.style.top = Math.floor(Math.random() * maxY) + 'px';
-
-            target.onclick = function() {
-              score++;
-              scoreDisplay.textContent = 'Score: ' + score;
-              gameArea.removeChild(target);
-              createTarget();
-            };
-
-            gameArea.appendChild(target);
-
-            // Remove target after 2 seconds if not clicked
-            setTimeout(() => {
-              if (target.parentNode === gameArea) {
-                gameArea.removeChild(target);
-                createTarget();
-              }
-            }, 2000);
-          }
-
-          function startGame() {
-            score = 0;
-            scoreDisplay.textContent = 'Score: 0';
-            gameArea.innerHTML = '';
-            createTarget();
-          }
-
-          restartButton.onclick = startGame;
-          startGame();
-        </script>
-      </body>
-      </html>
-    ''';
-
-    _controller.loadHtmlString(fallbackGameHtml);
-
-    if (mounted) {
-      setState(() {
-        _loadingError = null;
-        _isLoadingPage = false;
-      });
-    }
-  }
 
   @override
   void initState() {
@@ -187,31 +100,18 @@ Page resource error:
                     "• Network connectivity problems\n" +
                     "• Server temporarily unavailable\n" +
                     "• Firewall or proxy restrictions\n\n" +
-                    "Try the offline game below or check your connection.";
-                shouldShowFallback = true;
+                    "Please check your connection and try again.";
               } else if (error.description.contains('ERR_BLOCKED_BY_CLIENT') ||
                          error.description.contains('ERR_BLOCKED_BY_ADMINISTRATOR')) {
                 errorMessage = "Access blocked: This game may be restricted by your network administrator or security settings.";
-                shouldShowFallback = true;
               } else {
                 errorMessage = "Failed to load game (Error ${error.errorCode}): ${error.description}\n\nPlease check your connection or try again later.";
-                shouldShowFallback = true;
               }
 
               setState(() {
                 _isLoadingPage = false;
                 _loadingError = errorMessage;
               });
-              
-              // Auto-load fallback game after 3 seconds for connection errors
-              if (shouldShowFallback && !_triedFallback) {
-                Future.delayed(const Duration(seconds: 3), () {
-                  if (mounted && _loadingError != null) {
-                    print("Auto-loading fallback game due to connection error");
-                    _loadFallbackGame();
-                  }
-                });
-              }
             }
           },
           onNavigationRequest: (NavigationRequest request) {
@@ -229,14 +129,6 @@ Page resource error:
 
     // Load the URL after setting the User-Agent
     _controller.loadRequest(Uri.parse(widget.gameUrl));
-
-    // Set a timeout to automatically load the fallback game if the WebView takes too long
-    Future.delayed(const Duration(seconds: 10), () {
-      if (mounted && _isLoadingPage) {
-        print("WebView loading timeout - loading fallback game");
-        _loadFallbackGame();
-      }
-    });
   }
 
   @override
@@ -381,8 +273,31 @@ Page resource error:
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text(widget.gameTitle,
-              style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.onPrimary)),
+          title: ShaderMask(
+            shaderCallback: (bounds) => LinearGradient(
+              colors: [
+                Colors.white,
+                Colors.white.withOpacity(0.8),
+                theme.colorScheme.primary.withOpacity(0.3),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ).createShader(bounds),
+            child: Text(
+              widget.gameTitle,
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                shadows: [
+                  Shadow(
+                    offset: const Offset(1, 1),
+                    blurRadius: 3,
+                    color: Colors.black.withOpacity(0.5),
+                  ),
+                ],
+              ),
+            ),
+          ),
           backgroundColor: theme.appBarTheme.backgroundColor ?? theme.primaryColor,
           leading: IconButton(
             icon: Icon(Icons.arrow_back,
@@ -498,14 +413,6 @@ Page resource error:
                           _controller.loadRequest(Uri.parse(widget.gameUrl));
                         },
                         child: const Text('Retry'),
-                      ),
-                      const SizedBox(height: 12),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: theme.colorScheme.secondary,
-                        ),
-                        onPressed: _loadFallbackGame,
-                        child: const Text('Play Offline Game'),
                       ),
                     ],
                   ),
