@@ -1,5 +1,5 @@
 name: gamestagram
-description: "A new Flutter project."
+description: "A Web3 mobile game marketplace built on Stellar blockchain with Passkey authentication."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+1
+version: 2.0.0+1
 
 environment:
   sdk: ^3.7.2 # Note: Your SDK constraint is ^3.7.2. google_fonts 6.2.1 requires Flutter SDK >=3.19.2 and Dart SDK >=2.14.0 <4.0.0. Ensure your Flutter SDK version is compatible.
@@ -40,10 +40,40 @@ dependencies:
   webview_flutter: ^4.7.0 # Or the latest version
   webview_flutter_android: ^3.16.0
   webview_flutter_wkwebview: ^3.12.0
-  share_plus: ^7.2.2 # For sharing games
+  share_plus: ^11.0.0 # Updated for better sharing functionality
   app_links: ^6.4.0
   url_launcher: ^6.3.1
   http: ^1.4.0 # For HTTP requests
+  
+  # Web3 and Stellar Dependencies
+  stellar_flutter_sdk: ^1.8.1 # Compatible version with webauthn 0.2.5
+  crypto: ^3.0.3 # For cryptographic operations
+  bip39: ^1.0.6 # For mnemonic generation
+  ed25519_hd_key: ^2.1.1 # For HD key derivation
+  pinenacl: ^0.6.0 # Updated version for Dart 3.8.1 compatibility
+  local_auth: ^2.1.8 # For biometric authentication
+  local_auth_android: ^1.0.39
+  local_auth_ios: ^1.1.5
+  
+  # Passkey Support
+  webauthn: ^0.2.5 # Updated for compatibility
+  flutter_secure_storage: ^9.0.0 # Downgraded for compatibility
+  
+  # Blockchain and Smart Contract Support
+  json_annotation: ^4.9.0
+  json_serializable: ^6.8.0
+  
+  # UI and Animation
+  lottie: ^3.1.2 # For animations
+  flutter_svg: ^2.0.10+1 # For SVG icons
+  cached_network_image: ^3.3.1 # For image caching
+  
+  # State Management and Utilities
+  get_it: ^8.0.3 # Updated for better compatibility
+  dio: ^5.4.3+1 # For HTTP client
+  connectivity_plus: ^6.1.4 # Updated for better network handling
+  
+  # Legacy Firebase (keeping for backward compatibility during transition)
   firebase_core: ^3.13.1
   firebase_auth: ^5.5.4
   cloud_firestore: ^5.6.8
@@ -58,7 +88,9 @@ dev_dependencies:
   # activated in the `analysis_options.yaml` file located at the root of your
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
-  flutter_lints: ^5.0.0
+  flutter_lints: ^6.0.0
+  build_runner: ^2.4.10
+  json_serializable: ^6.8.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -75,6 +107,8 @@ flutter:
   assets:
     - assets/games.json
     - assets/images/
+    - assets/animations/
+    - assets/icons/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
@@ -101,3 +135,6 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+dependency_overrides:
+  pinenacl: ^0.6.0
